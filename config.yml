@@ -1,0 +1,29 @@
+# Plugin language. Available values: en | pl
+language: en
+
+# Container for data. Available values: file | mysql
+data_container: file
+# Database Connection Settings. If you use file as a container, you don't have to set it.
+host: localhost
+name: databasebName
+user: databaseUser
+password: databasePassword
+
+# Uncomment and set if you want server shops to use an account to withdraw and deposit money.
+# server_account_name: name
+
+# Shops number limits for groups.
+limit:
+  default: 2
+# Prices for a new shop for groups. (positive integer)
+price:
+  default: 0
+# Minimal prices for items. (positive double)
+minimal:
+  0: 1.5
+# List of excluded from shops items.
+exclude:
+  - 0
+# Discounts for groups. (percent of a price, that should be reduced)
+discount:
+  default: 0

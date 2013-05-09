@@ -1,0 +1,61 @@
+name: AShops
+version: 0.1
+description: Introduces to Bukkit shops based on chests.
+author: Austin
+website: http://www.austindev.pl/
+main: pl.austindev.ashops.AShops
+depend: [Vault]
+
+commands:
+  ashop:
+    description: Creates a new player shop.
+  asshop:
+    description: Creates a new server shop.
+  aremove:
+    description: Removes a shop.    
+  atoggle:
+    description: Diasables/enables a shop.
+  asell:
+    description: Adds an offer tag to a shop, that allows clients to buy items.
+  abuy:
+    description: Adds an offer tag to a shop, that allows clients to sell items.
+  arepair:
+    description: Allows to repair shop based on its offer tags.
+  asave:
+    description: Saves locations to a file.
+  aload:
+    description: Loads locations from a file.
+  aclear:
+    description: Clears shops.
+  ashops:
+    description: Lists all plugin commands.
+    
+permissions:
+  ashops.operator:
+    description: A set of permissions for operators.
+  ashops.player:
+    description: A set of permissions for players.
+  ashops.client.buy:
+    description: Allows to buy items from shops.
+  ashops.client.sell:
+    description: Allows to sell items to shops.
+  ashops.own.buy:
+    description: Grants a manager access to a player's own shops.
+  ashops.own.sell:
+    description: Grants a manager access to a player's own shops.
+  ashops.others.buy:
+    description: Grants a manager access to other players' shops.
+  ashops.others.sell:
+    description: Grants a manager access to other players' shops.
+  ashops.server.buy:
+    description: Grants a manager access to server shops.
+  ashops.server.sell:
+    description: Grants a manager access to server shops.
+  ashops.nolimit:
+    description: Allows to create any number of shops.
+  ashops.free:
+    description: Allows to create shops for free.
+  ashops.anyprice:
+    description: Allows to sell items for any price.
+  ashops.anyitem:
+    description: Allows to sell any item.
