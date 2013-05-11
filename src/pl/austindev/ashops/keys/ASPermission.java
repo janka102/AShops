@@ -26,6 +26,7 @@ public enum ASPermission implements APermission {
 	ANY_PRICE_SELL("anyprice", OPERATOR),
 	ANY_ITEM_SELL("anyitem", OPERATOR),
 	NO_TAXES("notaxes", OPERATOR),
+	ANY_REGION("anyregion", OPERATOR),
 	SERVER_SELL_SHOP("server.sell", OPERATOR),
 	SERVER_BUY_SHOP("server.buy", OPERATOR),
 	OTHERS_SELL_SHOP("others.sell", OPERATOR, SERVER_SELL_SHOP),

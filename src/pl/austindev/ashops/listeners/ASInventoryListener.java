@@ -56,7 +56,7 @@ public class ASInventoryListener extends ASListener {
 		Inventory source = event.getSource();
 		if (source.getType().equals(InventoryType.CHEST)) {
 			Chest chest = (Chest) source.getHolder();
-			Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+			Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 			if (ShopUtils.hasShopSign(signs) || ShopUtils.hasTagSign(signs)) {
 				event.setCancelled(true);
 			}
@@ -64,7 +64,7 @@ public class ASInventoryListener extends ASListener {
 			Inventory destination = event.getDestination();
 			if (destination.getType().equals(InventoryType.CHEST)) {
 				Chest chest = (Chest) destination.getHolder();
-				Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+				Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 				if (ShopUtils.hasShopSign(signs) || ShopUtils.hasTagSign(signs)) {
 					event.setCancelled(true);
 				}
@@ -79,7 +79,7 @@ public class ASInventoryListener extends ASListener {
 			Player player = (Player) event.getPlayer();
 			if (inventory.getType().equals(InventoryType.CHEST)) {
 				Chest chest = (Chest) inventory.getHolder();
-				Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+				Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 				if (ShopUtils.hasShopSign(signs)) {
 					if (!BlockUtils.isDoubleChest(chest)) {
 						if (ShopUtils.countShopSigns(signs) > 0
@@ -133,7 +133,7 @@ public class ASInventoryListener extends ASListener {
 		if (PlayerUtil.isPlayer(event.getPlayer())) {
 			if (inventory.getType().equals(InventoryType.CHEST)) {
 				Chest chest = (Chest) inventory.getHolder();
-				if (ShopUtils.hasShopSign(ShopUtils.getAttachedSigns(chest))) {
+				if (ShopUtils.hasShopSign(ShopUtils.getAttachedSigns(chest.getLocation()))) {
 					if (inventory.getViewers().size() <= 1) {
 						try {
 							getShopsManager().unloadOffers(chest);
@@ -158,7 +158,8 @@ public class ASInventoryListener extends ASListener {
 				Player player = (Player) event.getWhoClicked();
 				if (inventory.getType().equals(InventoryType.CHEST)) {
 					Chest chest = (Chest) inventory.getHolder();
-					Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+					Set<Sign> signs = ShopUtils.getAttachedSigns(chest
+							.getLocation());
 					if (ShopUtils.hasShopSign(signs)) {
 						event.setCancelled(true);
 						event.setResult(Event.Result.DENY);

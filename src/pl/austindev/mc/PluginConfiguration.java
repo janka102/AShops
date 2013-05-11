@@ -48,6 +48,11 @@ public class PluginConfiguration {
 		return plugin.getConfig().getIntegerList(getPath(path, arguments));
 	}
 
+	public List<String> getStringList(ConfigurationPath path,
+			Object... arguments) {
+		return plugin.getConfig().getStringList(getPath(path, arguments));
+	}
+
 	private String getPath(ConfigurationPath path, Object... arguments) {
 		return String.format(Locale.ENGLISH, path.getPath(), arguments);
 	}

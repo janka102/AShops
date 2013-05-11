@@ -73,9 +73,6 @@ public class VaultPermissionsProvider implements PermissionsProvider {
 
 	@Override
 	public boolean has(String playerName, World world, APermission permission) {
-		System.out.println("hasPermission: " + permission.getPath() + " in "
-				+ world.getName() + " (" + playerName + "): "
-				+ permissions.has(world, playerName, permission.getPath()));
 		if (permissions.has(world, playerName, permission.getPath())) {
 			return true;
 		} else {

@@ -46,7 +46,8 @@ public enum ASMessage implements AMessage {
 			Level.FAILURE), SHOP_ACTIVATED(Level.SUCCESS), SHOP_DEACTIVATED(
 			Level.SUCCESS), NOT_CHEST(Level.FAILURE), REPAIR_FAILURE(
 			Level.FAILURE), SHOP_RECREATED(Level.SUCCESS), NO_SIGN(
-			Level.FAILURE), SIGN_LINE_CLOSED(Level.NONE);
+			Level.FAILURE), SIGN_LINE_CLOSED(Level.NONE), NOT_SHOP_REGION(
+			Level.FAILURE);
 	private String colors;
 
 	private ASMessage(Level level, ChatColor... colors) {

@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
@@ -51,6 +52,8 @@ public class ShopsManager {
 	private final Set<String> repairingPlayers = Collections
 			.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
+	private final Set<String> allowedRegions = new HashSet<String>();
+
 	public ShopsManager(AShops plugin) throws DataAccessException {
 		this.plugin = plugin;
 		ShopUtils.setClosedShopMessage(plugin.$(ASMessage.SIGN_LINE_CLOSED));
@@ -58,6 +61,8 @@ public class ShopsManager {
 				ASConfigurationPath.SERVER_ACCOUNT_NAME));
 		ShopUtils.setTaxesAccountName(plugin.getConfiguration().getString(
 				ASConfigurationPath.TAXES_ACCOUNT_NAME));
+		allowedRegions.addAll(plugin.getConfiguration().getStringList(
+				ASConfigurationPath.REGIONS));
 		for (String group : plugin.getPermissions().getGroups()) {
 			int value = plugin.getConfiguration().getInt(
 					ASConfigurationPath.TAXES, group);
@@ -93,7 +98,8 @@ public class ShopsManager {
 		BlockUtils.closeForAll(inventory);
 		plugin.getDataManager().addPlayerShop(chest.getLocation(), ownerName);
 		inventory.clear();
-		ShopUtils.setShopSigns(ShopUtils.getAttachedSigns(chest), ownerName);
+		ShopUtils.setShopSigns(ShopUtils.getAttachedSigns(chest.getLocation()),
+				ownerName);
 	}
 
 	public void createServerShop(Chest chest) {
@@ -101,7 +107,7 @@ public class ShopsManager {
 		BlockUtils.closeForAll(inventory);
 		plugin.getDataManager().addServerShop(chest.getLocation());
 		inventory.clear();
-		ShopUtils.setShopSigns(ShopUtils.getAttachedSigns(chest),
+		ShopUtils.setShopSigns(ShopUtils.getAttachedSigns(chest.getLocation()),
 				ShopUtils.getServerShopOwnerLine());
 	}
 
@@ -118,12 +124,13 @@ public class ShopsManager {
 
 	public void recreatePlayerShop(Chest chest, String ownerName) {
 		plugin.getDataManager().addPlayerShop(chest.getLocation(), ownerName);
-		ShopUtils.setShopSigns(ShopUtils.getAttachedSigns(chest), ownerName);
+		ShopUtils.setShopSigns(ShopUtils.getAttachedSigns(chest.getLocation()),
+				ownerName);
 	}
 
 	public void recreateServerShop(Chest chest) {
 		plugin.getDataManager().addServerShop(chest.getLocation());
-		ShopUtils.setShopSigns(ShopUtils.getAttachedSigns(chest),
+		ShopUtils.setShopSigns(ShopUtils.getAttachedSigns(chest.getLocation()),
 				ShopUtils.getServerShopOwnerLine());
 	}
 
@@ -180,7 +187,8 @@ public class ShopsManager {
 			offer.updateOfferTag(inventory);
 			plugin.getDataManager().addOffer(chest.getLocation(), offer);
 			if (isEmpty)
-				ShopUtils.toggleShopMode(ShopUtils.getAttachedSigns(chest));
+				ShopUtils.toggleShopMode(ShopUtils.getAttachedSigns(chest
+						.getLocation()));
 			return true;
 		} else {
 			return false;
@@ -193,7 +201,7 @@ public class ShopsManager {
 		inventory.setItem(slot, null);
 		offersRegister.removeOffer(chest, slot);
 		plugin.getDataManager().removeOffer(chest.getLocation(), offer);
-		Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (ItemUtil.isEmpty(inventory) && ShopUtils.isOpen(signs))
 			ShopUtils.toggleShopMode(signs);
 	}
@@ -204,6 +212,18 @@ public class ShopsManager {
 
 	public void unloadOffers(Chest chest) throws OfferLoadingException {
 		offersRegister.unload(chest);
+	}
+
+	public boolean isShopRegion(Location location) {
+		if (plugin.getWorldGuard() != null) {
+			for (String region : ShopUtils.getRegions(plugin.getWorldGuard(),
+					location))
+				if (allowedRegions.contains(region))
+					return true;
+			return false;
+		} else {
+			return true;
+		}
 	}
 
 	public boolean canHaveMoreShops(Player player) {
@@ -269,7 +289,7 @@ public class ShopsManager {
 		Block block = shop.getLocation().getBlock();
 		if (block != null && block.getType().equals(Material.CHEST)) {
 			Chest chest = (Chest) block.getState();
-			Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+			Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 			ShopUtils.setShopSigns(signs, ownerName);
 			if (ShopUtils.hasShopSign(signs)) {
 				ShopUtils.setShopOwner(signs, ownerName);
@@ -318,7 +338,8 @@ public class ShopsManager {
 		BlockUtils.closeForAll(inventory);
 		Set<ItemStack> contents = ShopUtils.getContents(chest);
 		inventory.clear();
-		ShopUtils.clearShopSigns(ShopUtils.getAttachedSigns(chest));
+		ShopUtils
+				.clearShopSigns(ShopUtils.getAttachedSigns(chest.getLocation()));
 		try {
 			offersRegister.unload(chest);
 		} catch (OfferLoadingException e) {

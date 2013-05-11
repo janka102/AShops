@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -37,6 +38,9 @@ import pl.austindev.ashops.keys.ASPermission;
 import pl.austindev.ashops.shops.Offer;
 import pl.austindev.ashops.shops.PlayerShopOffer;
 import pl.austindev.mc.BlockUtils;
+
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
+import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 
 public class ShopUtils {
 	private static final String SIGN_TITLE = ChatColor.DARK_GRAY.toString()
@@ -206,10 +210,10 @@ public class ShopUtils {
 		return event.getLine(0).equalsIgnoreCase(SIGN_TAG_LINE);
 	}
 
-	public static Set<Sign> getAttachedSigns(Chest chest) {
+	public static Set<Sign> getAttachedSigns(Location location) {
 		Set<Sign> signs = new HashSet<Sign>();
 		for (BlockFace blockFace : BlockUtils.getHorizontalBlockFaces()) {
-			Block neighbour = chest.getBlock().getRelative(blockFace);
+			Block neighbour = location.getBlock().getRelative(blockFace);
 			if (neighbour != null) {
 				if (neighbour.getType().equals(Material.WALL_SIGN)) {
 					Sign sign = (Sign) neighbour.getState();
@@ -220,7 +224,7 @@ public class ShopUtils {
 				}
 			}
 		}
-		Block upperBlock = chest.getBlock().getRelative(BlockFace.UP);
+		Block upperBlock = location.getBlock().getRelative(BlockFace.UP);
 		if (upperBlock != null) {
 			if (upperBlock.getType().equals(Material.WALL_SIGN)) {
 				Sign sign = (Sign) upperBlock.getState();
@@ -228,6 +232,23 @@ public class ShopUtils {
 			}
 		}
 		return signs;
+	}
+
+	public static boolean hasShopNeighbours(Block block) {
+		Set<Block> neighbours = BlockUtils.getHorizontalNeighbours(block);
+		neighbours.addAll(BlockUtils.getHorizontalNeighbours(block
+				.getRelative(BlockFace.UP)));
+		neighbours.addAll(BlockUtils.getHorizontalNeighbours(block
+				.getRelative(BlockFace.DOWN)));
+		for (Block neighbour : neighbours) {
+			if (neighbour.getType().equals(Material.CHEST)) {
+				if (ShopUtils.hasShopSign(ShopUtils.getAttachedSigns(neighbour
+						.getLocation()))) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	public static Set<ItemStack> getContents(Chest chest) {
@@ -255,8 +276,6 @@ public class ShopUtils {
 
 	public static void applyTaxes(AShops plugin, World world,
 			String playerName, double value) {
-		System.out.println(!plugin.getPermissions().has(playerName, world,
-				ASPermission.NO_TAXES));
 		if (!plugin.getPermissions().has(playerName, world,
 				ASPermission.NO_TAXES)) {
 			int taxes = 0;
@@ -268,18 +287,22 @@ public class ShopUtils {
 						taxes = gTaxes;
 				}
 			}
-			System.out.println("taxes: " + taxes);
 			if (taxes > 0) {
 				double toTake = value * ((double) taxes / 100);
 				if (TAXES_ACCOUNT_NAME != null) {
 					plugin.getEconomy().transfer(playerName,
 							TAXES_ACCOUNT_NAME, toTake);
 				} else {
-					System.out.println("toTake: " + toTake);
-					System.out.println(plugin.getEconomy().takeFrom(playerName,
-							toTake));
 				}
 			}
 		}
+	}
+
+	public static Set<String> getRegions(WorldGuardPlugin wg, Location location) {
+		Set<String> regions = new HashSet<String>();
+		for (ProtectedRegion region : wg.getRegionManager(location.getWorld())
+				.getApplicableRegions(location))
+			regions.add(region.getId());
+		return regions;
 	}
 }

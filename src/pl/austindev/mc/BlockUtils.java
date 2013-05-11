@@ -42,6 +42,18 @@ public abstract class BlockUtils {
 		return neighbours;
 	}
 
+	public static Set<Block> getNeighbours(Block block) {
+		Set<Block> neighbours = new HashSet<Block>();
+		for (BlockFace blockFace : BlockFace.values()) {
+			if (block != null) {
+				Block neighbour = block.getRelative(blockFace);
+				if (neighbour != null)
+					neighbours.add(neighbour);
+			}
+		}
+		return neighbours;
+	}
+
 	public static boolean isDoubleChest(Chest chest) {
 		for (Block neighbour : getHorizontalNeighbours(chest.getBlock()))
 			if (neighbour.getType().equals(Material.CHEST))

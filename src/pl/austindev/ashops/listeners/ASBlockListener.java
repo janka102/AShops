@@ -59,23 +59,10 @@ public class ASBlockListener extends ASListener {
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onBlockPlace(BlockPlaceEvent event) {
 		Block block = event.getBlock();
-		Set<Block> neighbours = BlockUtils.getHorizontalNeighbours(block);
 		if (block.getType().equals(Material.CHEST)) {
-			preventBlockPlacing(event, block, neighbours, event.getPlayer(),
-					ASMessage.SHOP_NEIGHBOUR);
-		}
-	}
-
-	private void preventBlockPlacing(BlockPlaceEvent event, Block block,
-			Set<Block> neighbours, Player player, ASMessage message) {
-		for (Block neighbour : neighbours) {
-			if (neighbour.getType().equals(Material.CHEST)) {
-				if (ShopUtils.hasShopSign(ShopUtils
-						.getAttachedSigns((Chest) neighbour))) {
-					tell(player, ASMessage.SHOP_NEIGHBOUR);
-					event.setCancelled(true);
-					return;
-				}
+			if (ShopUtils.hasShopNeighbours(block)) {
+				tell(event.getPlayer(), ASMessage.SHOP_NEIGHBOUR);
+				event.setCancelled(true);
 			}
 		}
 	}
@@ -101,7 +88,7 @@ public class ASBlockListener extends ASListener {
 
 	private void onChestBreak(BlockBreakEvent event, Player player, Block block) {
 		Chest chest = (Chest) block.getState();
-		Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (ShopUtils.hasShopSign(signs)) {
 			String ownerName = ShopUtils.getOwner(signs);
 			if (PlayerUtil.isValidPlayerName(ownerName)) {
@@ -139,7 +126,8 @@ public class ASBlockListener extends ASListener {
 			Block shopBlock = BlockUtils.getAttachedBlock(sign);
 			if (shopBlock != null && shopBlock.getType().equals(Material.CHEST)) {
 				Chest chest = (Chest) shopBlock.getState();
-				Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+				Set<Sign> signs = ShopUtils.getAttachedSigns(chest
+						.getLocation());
 				if (ShopUtils.hasShopSign(signs)) {
 					checkShopSignBreak(event, player, chest, signs);
 				}
@@ -148,7 +136,8 @@ public class ASBlockListener extends ASListener {
 				if (shopBlock != null
 						&& shopBlock.getType().equals(Material.CHEST)) {
 					Chest chest = (Chest) shopBlock.getState();
-					Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+					Set<Sign> signs = ShopUtils.getAttachedSigns(chest
+							.getLocation());
 					if (ShopUtils.hasShopSign(signs)) {
 						checkShopSignBreak(event, player, chest, signs);
 					}
@@ -177,7 +166,7 @@ public class ASBlockListener extends ASListener {
 			Block block) {
 		if (block != null && block.getType().equals(Material.CHEST)) {
 			Chest chest = (Chest) block.getState();
-			Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+			Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 			if (ShopUtils.hasShopSign(signs)) {
 				if (player.getName()
 						.equalsIgnoreCase(ShopUtils.getOwner(signs))

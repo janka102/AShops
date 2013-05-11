@@ -5,6 +5,9 @@ author: Austin
 website: http://www.austindev.pl/
 main: pl.austindev.ashops.AShops
 depend: [Vault]
+softdepend:
+  - WorldEdit
+  - WorldGuard
 
 commands:
   ashop:
@@ -61,3 +64,5 @@ permissions:
     description: Allows to sell any item.
   ashops.notaxes:
     description: Ignores taxes.
+  ashops.anyregion:
+    description: Ignores shop regions.

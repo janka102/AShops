@@ -35,9 +35,14 @@ import pl.austindev.mc.ACommandExecutor;
 import pl.austindev.mc.APlugin;
 import pl.austindev.mc.PluginSetupException;
 
+import com.sk89q.worldedit.bukkit.WorldEditPlugin;
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
+
 public class AShops extends APlugin {
 	private volatile ShopsManager shopsManager;
 	private volatile DataManager dataManager;
+	private volatile WorldGuardPlugin worldGuard;
+	private volatile WorldEditPlugin worldEdit;
 
 	@Override
 	public void onEnable() {
@@ -49,6 +54,7 @@ public class AShops extends APlugin {
 							ASConfigurationPath.LANGUAGE)), false);
 			setupPermissions();
 			setupEconomy();
+			setupRegionPlugins();
 			setupDataManager();
 			shopsManager = new ShopsManager(this);
 			ACommandExecutor.register(this, ASCommand.class);
@@ -67,6 +73,14 @@ public class AShops extends APlugin {
 
 	public DataManager getDataManager() {
 		return dataManager;
+	}
+
+	public WorldEditPlugin getWorldEdit() {
+		return worldEdit;
+	}
+
+	public WorldGuardPlugin getWorldGuard() {
+		return worldGuard;
 	}
 
 	private void registerListeners() {
@@ -120,4 +134,16 @@ public class AShops extends APlugin {
 		}
 	}
 
+	public void setupRegionPlugins() {
+		try {
+			this.worldEdit = (WorldEditPlugin) Bukkit.getPluginManager()
+					.getPlugin("WorldEdit");
+			this.worldGuard = (WorldGuardPlugin) Bukkit.getPluginManager()
+					.getPlugin("WorldGuard");
+		} catch (Exception e) {
+			new PluginSetupException(
+					"Could not setup WorldEdit/WorldGuard. You won't be able to use some funtions in AShops.",
+					e);
+		}
+	}
 }

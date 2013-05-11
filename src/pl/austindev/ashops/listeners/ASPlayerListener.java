@@ -77,29 +77,31 @@ public class ASPlayerListener extends ASListener {
 		TemporaryValue temporaryValue = getPlugin().getTemporaryValues().take(
 				player.getName());
 		if (temporaryValue != null) {
-			if (block.getType().equals(Material.CHEST)) {
-				Chest chest = (Chest) block.getState();
-				TempsSource source = temporaryValue.getSource();
-				if (source.equals(ASCommand.ASHOP))
-					tryCreatePlayerShop(player, chest, temporaryValue);
-				else if (source.equals(ASCommand.ASSHOP))
-					tryCreateServerShop(player, chest, temporaryValue);
-				else if (source.equals(ASCommand.AREMOVE))
-					tryRemoveServerShop(player, chest, temporaryValue);
-				else if (source.equals(ASCommand.ABUY))
-					tryAddOfferBuy(player, chest, temporaryValue);
-				else if (source.equals(ASCommand.ASELL))
-					tryAddOfferSell(player, chest, temporaryValue);
-				else if (source.equals(ASCommand.ATOGGLE))
-					tryToggleShopMode(player, chest);
-			} else {
-				tell(player, ASMessage.ABORTED);
+			if (!event.isCancelled()) {
+				if (block.getType().equals(Material.CHEST)) {
+					Chest chest = (Chest) block.getState();
+					TempsSource source = temporaryValue.getSource();
+					if (source.equals(ASCommand.ASHOP))
+						tryCreatePlayerShop(player, chest, temporaryValue);
+					else if (source.equals(ASCommand.ASSHOP))
+						tryCreateServerShop(player, chest, temporaryValue);
+					else if (source.equals(ASCommand.AREMOVE))
+						tryRemoveServerShop(player, chest, temporaryValue);
+					else if (source.equals(ASCommand.ABUY))
+						tryAddOfferBuy(player, chest, temporaryValue);
+					else if (source.equals(ASCommand.ASELL))
+						tryAddOfferSell(player, chest, temporaryValue);
+					else if (source.equals(ASCommand.ATOGGLE))
+						tryToggleShopMode(player, chest);
+				} else {
+					tell(player, ASMessage.ABORTED);
+				}
+				event.setCancelled(true);
 			}
-			event.setCancelled(true);
 		}
 		if (block.getType().equals(Material.CHEST)) {
 			Chest chest = (Chest) block.getState();
-			Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+			Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 			if (ShopUtils.hasShopSign(signs)) {
 				preventIllegalAccess(event, player, chest);
 			}
@@ -128,7 +130,7 @@ public class ASPlayerListener extends ASListener {
 
 	private void tryRecreateShop(Player player, Chest chest) {
 		if (!BlockUtils.isDoubleChest(chest)) {
-			Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+			Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 			if (ShopUtils.hasShopSign(signs) || ShopUtils.hasTagSign(signs)) {
 				Inventory inventory = chest.getInventory();
 				String ownerName = null;
@@ -208,29 +210,43 @@ public class ASPlayerListener extends ASListener {
 
 	private void tryCreatePlayerShop(Player player, Chest chest,
 			TemporaryValue temporaryValue) {
-		Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (!ShopUtils.hasShopSign(signs)) {
 			if (!BlockUtils.isDoubleChest(chest)) {
-				if (ShopUtils.hasTagSign(signs)) {
-					Integer shopPrice = temporaryValue.get(Integer.class);
-					if (shopPrice != null) {
-						if (getEconomy().takeFrom(player.getName(), shopPrice)) {
-							getShopsManager().createPlayerShop(chest,
-									player.getName());
-							tell(player, ASMessage.CREATED);
+				if (!ShopUtils.hasShopNeighbours(chest.getBlock())) {
+					if (ShopUtils.hasTagSign(signs)) {
+						if (getPermissions().has(player,
+								ASPermission.ANY_REGION)
+								|| getShopsManager().isShopRegion(
+										chest.getLocation())) {
+							Integer shopPrice = temporaryValue
+									.get(Integer.class);
+							if (shopPrice != null) {
+								if (getEconomy().takeFrom(player.getName(),
+										shopPrice)) {
+									getShopsManager().createPlayerShop(chest,
+											player.getName());
+									tell(player, ASMessage.CREATED);
+								} else {
+									tell(player, ASMessage.NO_MONEY, shopPrice);
+								}
+							} else {
+								String ownerName = temporaryValue
+										.get(String.class);
+								if (ownerName != null) {
+									getShopsManager().createPlayerShop(chest,
+											ownerName);
+									tell(player, ASMessage.CREATED);
+								}
+							}
 						} else {
-							tell(player, ASMessage.NO_MONEY, shopPrice);
+							tell(player, ASMessage.NOT_SHOP_REGION);
 						}
 					} else {
-						String ownerName = temporaryValue.get(String.class);
-						if (ownerName != null) {
-							getShopsManager()
-									.createPlayerShop(chest, ownerName);
-							tell(player, ASMessage.CREATED);
-						}
+						tell(player, ASMessage.NO_SIGN);
 					}
 				} else {
-					tell(player, ASMessage.NO_SIGN);
+					tell(player, ASMessage.SHOP_NEIGHBOUR);
 				}
 			} else {
 				tell(player, ASMessage.DOUBLE_CHEST);
@@ -289,7 +305,7 @@ public class ASPlayerListener extends ASListener {
 
 	private void tryCreateServerShop(Player player, Chest chest,
 			TemporaryValue temporaryValue) {
-		Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (!ShopUtils.hasShopSign(signs)) {
 			if (!BlockUtils.isDoubleChest(chest)) {
 				if (ShopUtils.hasTagSign(signs)) {
@@ -308,7 +324,7 @@ public class ASPlayerListener extends ASListener {
 
 	private void tryRemoveServerShop(Player player, Chest chest,
 			TemporaryValue temporaryValue) {
-		Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (ShopUtils.hasShopSign(signs)) {
 			String ownerName = ShopUtils.getOwner(signs);
 			if (PlayerUtil.isValidPlayerName(ownerName)) {
@@ -341,7 +357,7 @@ public class ASPlayerListener extends ASListener {
 
 	private void tryAddOfferBuy(Player player, Chest chest,
 			TemporaryValue temporaryValue) {
-		Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (ShopUtils.hasShopSign(signs)) {
 			String ownerName = ShopUtils.getOwner(signs);
 			OfferBuilder offerBuilder = temporaryValue.get(OfferBuilder.class);
@@ -378,7 +394,7 @@ public class ASPlayerListener extends ASListener {
 
 	private void tryAddOfferSell(Player player, Chest chest,
 			TemporaryValue temporaryValue) {
-		Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (ShopUtils.hasShopSign(signs)) {
 			String ownerName = ShopUtils.getOwner(signs);
 			OfferBuilder offerBuilder = temporaryValue.get(OfferBuilder.class);
@@ -413,7 +429,7 @@ public class ASPlayerListener extends ASListener {
 	}
 
 	private void tryToggleShopMode(Player player, Chest chest) {
-		Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (ShopUtils.hasShopSign(signs)) {
 			String ownerName = ShopUtils.getOwner(signs);
 			if (PlayerUtil.isValidPlayerName(ownerName)) {
