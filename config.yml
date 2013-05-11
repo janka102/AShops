@@ -34,5 +34,5 @@ taxes:
   default: 0
 
 # List of regions, where player can create a shop.
-regions:
-  - regionName
+# regions:
+#  - regionName

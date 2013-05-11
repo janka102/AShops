@@ -21,6 +21,7 @@ import pl.austindev.ashops.AShops;
 import pl.austindev.commands.ABuyCommandExecutor;
 import pl.austindev.commands.AClearCommandExecutor;
 import pl.austindev.commands.ALoadCommandExecutor;
+import pl.austindev.commands.AReloadCommandExecutor;
 import pl.austindev.commands.ARemoveCommandExecutor;
 import pl.austindev.commands.ARepairCommandExecutor;
 import pl.austindev.commands.ASShopCommandExecutor;
@@ -58,7 +59,9 @@ public enum ASCommand implements ACommand {
 			ASPermission.OTHERS_SELL_SHOP),
 	ATOGGLE(AToggleCommandExecutor.class,
 			ASMessage.CMD_ATOGGLE, true, 0, 0, ASPermission.OWN_BUY_SHOP,
-			ASPermission.OWN_SELL_SHOP);
+			ASPermission.OWN_SELL_SHOP),
+	ARELOAD(AReloadCommandExecutor.class, ASMessage.CMD_ARELOAD, false, 0,
+			0, ASPermission.OPERATOR);
 
 	private final Class<? extends ACommandExecutor<AShops>> executor;
 	private final AMessage description;

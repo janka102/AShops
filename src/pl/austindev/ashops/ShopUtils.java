@@ -293,6 +293,7 @@ public class ShopUtils {
 					plugin.getEconomy().transfer(playerName,
 							TAXES_ACCOUNT_NAME, toTake);
 				} else {
+					plugin.getEconomy().takeFrom(playerName, toTake);
 				}
 			}
 		}

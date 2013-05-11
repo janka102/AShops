@@ -52,17 +52,13 @@ public class ShopsManager {
 	private final Set<String> repairingPlayers = Collections
 			.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
-	private final Set<String> allowedRegions = new HashSet<String>();
+	private final Set<String> allowedRegions = Collections
+			.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
 	public ShopsManager(AShops plugin) throws DataAccessException {
 		this.plugin = plugin;
 		ShopUtils.setClosedShopMessage(plugin.$(ASMessage.SIGN_LINE_CLOSED));
-		ShopUtils.setServerAccountName(plugin.getConfiguration().getString(
-				ASConfigurationPath.SERVER_ACCOUNT_NAME));
-		ShopUtils.setTaxesAccountName(plugin.getConfiguration().getString(
-				ASConfigurationPath.TAXES_ACCOUNT_NAME));
-		allowedRegions.addAll(plugin.getConfiguration().getStringList(
-				ASConfigurationPath.REGIONS));
+		loadConfigProperties();
 		for (String group : plugin.getPermissions().getGroups()) {
 			int value = plugin.getConfiguration().getInt(
 					ASConfigurationPath.TAXES, group);
@@ -73,6 +69,18 @@ public class ShopsManager {
 		offersRegister = OffersRegister.newInstance(plugin);
 		LoadResult result = plugin.getDataManager().start();
 		restoreShops(result.getLoadedOwners(), result.getLoadedServerShops());
+	}
+
+	public void loadConfigProperties() {
+		ShopUtils.setServerAccountName(plugin.getConfiguration().getString(
+				ASConfigurationPath.SERVER_ACCOUNT_NAME));
+		ShopUtils.setTaxesAccountName(plugin.getConfiguration().getString(
+				ASConfigurationPath.TAXES_ACCOUNT_NAME));
+		allowedRegions.clear();
+		allowedRegions.addAll(plugin.getConfiguration().getStringList(
+				ASConfigurationPath.REGIONS));
+		excludedItems.clear();
+		loadExcludedItems();
 	}
 
 	public boolean toggleRepairMode(String playerName) {
@@ -186,7 +194,9 @@ public class ShopsManager {
 			offersRegister.addOffer(chest, slot, offer);
 			offer.updateOfferTag(inventory);
 			plugin.getDataManager().addOffer(chest.getLocation(), offer);
-			if (isEmpty)
+			if (isEmpty
+					&& !ShopUtils.isOpen(ShopUtils.getAttachedSigns(chest
+							.getLocation())))
 				ShopUtils.toggleShopMode(ShopUtils.getAttachedSigns(chest
 						.getLocation()));
 			return true;
@@ -215,7 +225,7 @@ public class ShopsManager {
 	}
 
 	public boolean isShopRegion(Location location) {
-		if (plugin.getWorldGuard() != null) {
+		if (plugin.getWorldGuard() != null && allowedRegions.size() > 0) {
 			for (String region : ShopUtils.getRegions(plugin.getWorldGuard(),
 					location))
 				if (allowedRegions.contains(region))

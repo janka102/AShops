@@ -32,6 +32,8 @@ commands:
     description: Clears shops.
   ashops:
     description: Lists all plugin commands.
+  areload:
+    description: reloads the plugin config file.
     
 permissions:
   ashops.operator:
