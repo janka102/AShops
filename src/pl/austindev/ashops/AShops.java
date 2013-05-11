@@ -46,7 +46,7 @@ public class AShops extends APlugin {
 			setupTranslations(
 					"pl.austindev.ashops.lang/ashops",
 					new Locale(getConfiguration().getString(
-							ASConfigurationPath.LANGUAGE)), false);
+							ASConfigurationPath.LANGUAGE)), true);
 			setupPermissions();
 			setupEconomy();
 			setupDataManager();

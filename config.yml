@@ -27,3 +27,9 @@ exclude:
 # Discounts for groups. (percent of a price, that should be reduced)
 discount:
   default: 0
+# Uncomment if you want to send collected taxes to specified account. You can set the same account in this property and in server_account_name.
+# taxes_account_name: name
+# Perecent of income that will be sent to the taxes account.
+taxes:
+  default: 0
+  

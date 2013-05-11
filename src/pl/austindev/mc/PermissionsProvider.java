@@ -19,6 +19,7 @@ package pl.austindev.mc;
 
 import java.util.Set;
 
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -36,4 +37,10 @@ public interface PermissionsProvider {
 			APermission permission2);
 
 	public Set<String> getGroups(Player player);
+
+	public String[] getGroups();
+
+	public Set<String> getGroups(String playerName, World world);
+
+	public boolean has(String playerName, World world, APermission noTaxes);
 }

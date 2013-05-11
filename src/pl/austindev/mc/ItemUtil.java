@@ -24,6 +24,14 @@ import org.bukkit.inventory.ItemStack;
 
 public abstract class ItemUtil {
 
+	public static boolean isEmpty(Inventory inventory) {
+		ItemStack[] items = inventory.getContents();
+		for (ItemStack item : items)
+			if (item != null && item.getTypeId() > 0)
+				return false;
+		return true;
+	}
+
 	public static int lastEmpty(Inventory inventory) {
 		for (int i = inventory.getSize() - 1; i >= 0; i--) {
 			ItemStack item = inventory.getItem(i);

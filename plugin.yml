@@ -59,3 +59,5 @@ permissions:
     description: Allows to sell items for any price.
   ashops.anyitem:
     description: Allows to sell any item.
+  ashops.notaxes:
+    description: Ignores taxes.

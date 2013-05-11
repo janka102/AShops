@@ -54,10 +54,16 @@ public class ShopsManager {
 	public ShopsManager(AShops plugin) throws DataAccessException {
 		this.plugin = plugin;
 		ShopUtils.setClosedShopMessage(plugin.$(ASMessage.SIGN_LINE_CLOSED));
-		ShopUtils.setServerAccountName(
-				plugin.getEconomy(),
-				plugin.getConfiguration().getString(
-						ASConfigurationPath.SERVER_ACCOUNT_NAME));
+		ShopUtils.setServerAccountName(plugin.getConfiguration().getString(
+				ASConfigurationPath.SERVER_ACCOUNT_NAME));
+		ShopUtils.setTaxesAccountName(plugin.getConfiguration().getString(
+				ASConfigurationPath.TAXES_ACCOUNT_NAME));
+		for (String group : plugin.getPermissions().getGroups()) {
+			int value = plugin.getConfiguration().getInt(
+					ASConfigurationPath.TAXES, group);
+			if (value > 0)
+				ShopUtils.setTaxes(group, value);
+		}
 		loadExcludedItems();
 		offersRegister = OffersRegister.newInstance(plugin);
 		LoadResult result = plugin.getDataManager().start();
@@ -157,25 +163,28 @@ public class ShopsManager {
 		plugin.getDataManager().clearServerShops();
 	}
 
+	public Offer getOffer(Chest chest, int slot) throws OfferLoadingException {
+		return offersRegister.getShop(chest).getOffer(slot);
+	}
+
 	public boolean addOffer(Chest chest, OfferBuilder offerBuilder,
 			OfferType offerType) throws OfferLoadingException {
 		Inventory inventory = chest.getInventory();
 		int slot = offerType.equals(OfferType.SELL) ? inventory.firstEmpty()
 				: ItemUtil.lastEmpty(inventory);
 		if (slot >= 0) {
+			boolean isEmpty = ItemUtil.isEmpty(inventory);
 			offerBuilder.setSlot(slot);
 			Offer offer = offerBuilder.build(offerType);
 			offersRegister.addOffer(chest, slot, offer);
 			offer.updateOfferTag(inventory);
 			plugin.getDataManager().addOffer(chest.getLocation(), offer);
+			if (isEmpty)
+				ShopUtils.toggleShopMode(ShopUtils.getAttachedSigns(chest));
 			return true;
 		} else {
 			return false;
 		}
-	}
-
-	public Offer getOffer(Chest chest, int slot) throws OfferLoadingException {
-		return offersRegister.getShop(chest).getOffer(slot);
 	}
 
 	public void removeOffer(Chest chest, int slot) throws OfferLoadingException {
@@ -184,6 +193,9 @@ public class ShopsManager {
 		inventory.setItem(slot, null);
 		offersRegister.removeOffer(chest, slot);
 		plugin.getDataManager().removeOffer(chest.getLocation(), offer);
+		Set<Sign> signs = ShopUtils.getAttachedSigns(chest);
+		if (ItemUtil.isEmpty(inventory) && ShopUtils.isOpen(signs))
+			ShopUtils.toggleShopMode(signs);
 	}
 
 	public void loadOffers(Chest chest) {

@@ -69,6 +69,7 @@ public class ServerShopBuyOffer extends ServerShopOffer {
 				if (plugin.getEconomy().transfer(accountName, player.getName(),
 						value)) {
 					updateOfferTag(shopInventory);
+					ShopUtils.applyTaxes(plugin, player, value);
 					return null;
 				} else {
 					ItemUtil.add(playerInventory, getItem(), amount);
@@ -76,6 +77,7 @@ public class ServerShopBuyOffer extends ServerShopOffer {
 				}
 			} else {
 				if (plugin.getEconomy().giveTo(player.getName(), value)) {
+					ShopUtils.applyTaxes(plugin, player, value);
 					return null;
 				} else {
 					ItemUtil.add(playerInventory, getItem(), amount);

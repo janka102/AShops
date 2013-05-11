@@ -17,6 +17,9 @@
  */
 package pl.austindev.ashops;
 
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,9 +35,13 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import pl.austindev.ashops.shops.Offer;
+import pl.austindev.ashops.shops.PlayerShopBuyOffer;
+import pl.austindev.ashops.shops.PlayerShopOffer;
+import pl.austindev.ashops.shops.PlayerShopSellOffer;
 import pl.austindev.ashops.shops.Shop;
 
 public class OffersRegister {
@@ -121,7 +128,11 @@ public class OffersRegister {
 		Future<Shop> shopFuture = openedShops.get(chest.getLocation());
 		if (shopFuture != null)
 			try {
-				shopFuture.get().addOffer(slot, offer);
+				Shop shop = shopFuture.get();
+				shop.addOffer(slot, offer);
+				if (offer instanceof PlayerShopOffer) {
+					linkOppositeOffers(shop, (PlayerShopOffer) offer);
+				}
 			} catch (InterruptedException e) {
 				throw new OfferLoadingException(e, chest.getLocation());
 			} catch (ExecutionException e) {
@@ -133,7 +144,24 @@ public class OffersRegister {
 		Future<Shop> shopFuture = openedShops.get(chest.getLocation());
 		if (shopFuture != null)
 			try {
-				shopFuture.get().removeOffer(slot);
+				Shop shop = shopFuture.get();
+				Offer offer = shop.removeOffer(slot);
+				if (offer != null && offer instanceof PlayerShopSellOffer) {
+					PlayerShopSellOffer sellOffer = (PlayerShopSellOffer) offer;
+					for (Offer shopOffer : shop.getOffers().values()) {
+						if (shopOffer instanceof PlayerShopBuyOffer) {
+							PlayerShopBuyOffer buyOffer = (PlayerShopBuyOffer) shopOffer;
+							Iterator<PlayerShopSellOffer> iterator = buyOffer
+									.getOppositeOffers().iterator();
+							while (iterator.hasNext()) {
+								PlayerShopSellOffer oppositeOffer = iterator
+										.next();
+								if (oppositeOffer.equals(sellOffer))
+									iterator.remove();
+							}
+						}
+					}
+				}
 			} catch (InterruptedException e) {
 				throw new OfferLoadingException(e, chest.getLocation());
 			} catch (ExecutionException e) {
@@ -144,9 +172,67 @@ public class OffersRegister {
 	private Shop loadOffers(Location location, ItemStack[] items) {
 		Shop shop = new Shop(location);
 		for (int i = 0; i < items.length; i++)
-			if (items[i] != null)
-				shop.addOffer(i, Offer.getOffer(items[i], i));
+			if (items[i] != null) {
+				Offer offer = Offer.getOffer(items[i], i);
+				if (offer instanceof PlayerShopOffer) {
+					linkOppositeOffers(shop, (PlayerShopOffer) offer);
+				}
+				shop.addOffer(i, offer);
+			}
 		return shop;
+	}
+
+	private void linkOppositeOffers(final Shop shop, PlayerShopOffer offer) {
+		final Set<Offer> offersToUpdate = new HashSet<Offer>();
+		if (offer instanceof PlayerShopBuyOffer) {
+			PlayerShopBuyOffer buyOffer = (PlayerShopBuyOffer) offer;
+			for (Offer shopOffer : shop.getOffers().values()) {
+				if (shopOffer instanceof PlayerShopSellOffer) {
+					PlayerShopSellOffer sellOffer = (PlayerShopSellOffer) shopOffer;
+					buyOffer.getOppositeOffers().add(sellOffer);
+					if (transferItems(buyOffer, sellOffer)) {
+						offersToUpdate.add(sellOffer);
+						offersToUpdate.add(buyOffer);
+					}
+				}
+			}
+		} else {
+			PlayerShopSellOffer sellOffer = (PlayerShopSellOffer) offer;
+			for (Offer shopOffer : shop.getOffers().values()) {
+				if (shopOffer instanceof PlayerShopBuyOffer) {
+					PlayerShopBuyOffer buyOffer = (PlayerShopBuyOffer) shopOffer;
+					buyOffer.getOppositeOffers().add(sellOffer);
+					if (transferItems(buyOffer, sellOffer)) {
+						offersToUpdate.add(sellOffer);
+						offersToUpdate.add(buyOffer);
+					}
+				}
+			}
+		}
+		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				Inventory inventory = ((Chest) shop.getLocation().getBlock()
+						.getState()).getInventory();
+				for (Offer offer : offersToUpdate)
+					offer.updateOfferTag(inventory);
+			}
+		});
+	}
+
+	private boolean transferItems(PlayerShopBuyOffer buyOffer,
+			PlayerShopSellOffer sellOffer) {
+		if (buyOffer.getAmount() > 0) {
+			int leftSpace = sellOffer.getMaxAmount() - sellOffer.getAmount();
+			int amount = Math.min(leftSpace, buyOffer.getAmount());
+			if (amount > 0) {
+				sellOffer.setAmount(sellOffer.getAmount() + amount);
+				buyOffer.setAmount(buyOffer.getAmount() - amount);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void removeClosed() throws OfferLoadingException {

@@ -17,22 +17,26 @@
  */
 package pl.austindev.ashops;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
 import org.bukkit.block.Sign;
+import org.bukkit.entity.Player;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.inventory.ItemStack;
 
+import pl.austindev.ashops.keys.ASPermission;
 import pl.austindev.ashops.shops.Offer;
 import pl.austindev.ashops.shops.PlayerShopOffer;
 import pl.austindev.mc.BlockUtils;
-import pl.austindev.mc.EconomyProvider;
 
 public class ShopUtils {
 	private static final String SIGN_TITLE = ChatColor.DARK_GRAY.toString()
@@ -43,18 +47,35 @@ public class ShopUtils {
 	private static volatile String CLOSED_SHOP_MESSAGE = ChatColor.DARK_GRAY
 			+ "- closed -";
 	private static volatile String SERVER_ACCOUNT_NAME = null;
+	private static volatile String TAXES_ACCOUNT_NAME = null;
+
+	private static final Map<String, Integer> groupTaxes = new HashMap<String, Integer>();
 
 	private ShopUtils() {
 	}
 
-	public static void setServerAccountName(EconomyProvider economy, String name) {
+	public static void setServerAccountName(String name) {
 		if (name != null && name.length() > 0) {
 			SERVER_ACCOUNT_NAME = name;
 		}
 	}
 
+	public static void setTaxesAccountName(String name) {
+		if (name != null && name.length() > 0) {
+			TAXES_ACCOUNT_NAME = name;
+		}
+	}
+
+	public static void setTaxes(String group, int value) {
+		groupTaxes.put(group, value);
+	}
+
 	public static String getServerAccountName() {
 		return SERVER_ACCOUNT_NAME;
+	}
+
+	public static String getTaxesAccountname() {
+		return TAXES_ACCOUNT_NAME;
 	}
 
 	public static void setClosedShopMessage(String closedShopMessage) {
@@ -226,5 +247,39 @@ public class ShopUtils {
 
 	public static String getServerShopOwnerLine() {
 		return SERVER_SHOP_LINE;
+	}
+
+	public static void applyTaxes(AShops plugin, Player player, double value) {
+		applyTaxes(plugin, player.getWorld(), player.getName(), value);
+	}
+
+	public static void applyTaxes(AShops plugin, World world,
+			String playerName, double value) {
+		System.out.println(!plugin.getPermissions().has(playerName, world,
+				ASPermission.NO_TAXES));
+		if (!plugin.getPermissions().has(playerName, world,
+				ASPermission.NO_TAXES)) {
+			int taxes = 0;
+			for (String group : plugin.getPermissions().getGroups(playerName,
+					world)) {
+				if (groupTaxes.containsKey(group)) {
+					int gTaxes = groupTaxes.get(group);
+					if (gTaxes > taxes)
+						taxes = gTaxes;
+				}
+			}
+			System.out.println("taxes: " + taxes);
+			if (taxes > 0) {
+				double toTake = value * ((double) taxes / 100);
+				if (TAXES_ACCOUNT_NAME != null) {
+					plugin.getEconomy().transfer(playerName,
+							TAXES_ACCOUNT_NAME, toTake);
+				} else {
+					System.out.println("toTake: " + toTake);
+					System.out.println(plugin.getEconomy().takeFrom(playerName,
+							toTake));
+				}
+			}
+		}
 	}
 }

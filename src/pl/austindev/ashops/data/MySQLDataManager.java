@@ -121,6 +121,7 @@ public class MySQLDataManager extends DataManager {
 
 	@Override
 	public void addPlayerShop(Location location, String ownerName) {
+		removePlayerShop(location, ownerName);
 		mysqlManager.scheduleQuery("INSERT INTO " + PLAYER_SHOPS_TABLE_NAME
 				+ " VALUES(NULL, '" + ownerName + "', '"
 				+ location.getWorld().getName() + "', " + location.getBlockX()
@@ -135,6 +136,7 @@ public class MySQLDataManager extends DataManager {
 
 	@Override
 	public void addServerShop(Location location) {
+		removeServerShop(location);
 		mysqlManager.scheduleQuery("INSERT INTO " + SERVER_SHOPS_TABLE_NAME
 				+ " VALUES(NULL, '" + location.getWorld().getName() + "', "
 				+ location.getBlockX() + " ," + location.getBlockY() + " , "

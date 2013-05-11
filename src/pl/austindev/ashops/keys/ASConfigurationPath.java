@@ -21,10 +21,11 @@ import pl.austindev.mc.ConfigurationPath;
 
 public enum ASConfigurationPath implements ConfigurationPath {
 	DEBUG("debug"), LANGUAGE("language"), DATA_CONTAINER("data_container"), DB_HOST(
-			"host"), DB_NAME("name"), DB_USER("user"), DB_PASSWORD(
-			"password"), SHOPS_LIMIT("limit.%s"), SHOP_PRICE("price.%s"), MINIMAL_PRICE(
-			"minimal.%s"), EXCLUDED_ITEMS_LIST("exclude"), DISCOUNT(
-			"discount.%s"), SERVER_ACCOUNT_NAME("server_account_name");
+			"host"), DB_NAME("name"), DB_USER("user"), DB_PASSWORD("password"), SHOPS_LIMIT(
+			"limit.%s"), SHOP_PRICE("price.%s"), MINIMAL_PRICE("minimal.%s"), EXCLUDED_ITEMS_LIST(
+			"exclude"), DISCOUNT("discount.%s"), SERVER_ACCOUNT_NAME(
+			"server_account_name"), TAXES_ACCOUNT_NAME("taxes_account_name"), TAXES(
+			"taxes.%s");
 	private final String path;
 
 	private ASConfigurationPath(String path) {

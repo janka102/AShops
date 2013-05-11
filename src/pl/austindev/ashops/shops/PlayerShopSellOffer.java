@@ -28,6 +28,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import pl.austindev.ashops.AShops;
+import pl.austindev.ashops.ShopUtils;
 import pl.austindev.ashops.keys.ASMessage;
 import pl.austindev.ashops.keys.ASPermission;
 import pl.austindev.mc.ItemUtil;
@@ -98,6 +99,8 @@ public class PlayerShopSellOffer extends PlayerShopOffer {
 						getOwnerName(), value)) {
 					setAmount(getAmount() - amount);
 					updateOfferTag(shopInventory);
+					ShopUtils.applyTaxes(plugin, player.getWorld(), getOwnerName(),
+							value);
 					return null;
 				} else {
 					ItemUtil.remove(playerInventory, getItem(), amount);

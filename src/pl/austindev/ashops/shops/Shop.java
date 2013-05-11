@@ -56,8 +56,8 @@ public class Shop implements Serializable {
 		offers.put(slot, offer);
 	}
 
-	public void removeOffer(int slot) {
-		offers.remove(slot);
+	public Offer removeOffer(int slot) {
+		return offers.remove(slot);
 	}
 
 	public Offer getOffer(int slot) {
@@ -89,7 +89,10 @@ public class Shop implements Serializable {
 
 	@Override
 	public boolean equals(Object obj) {
-		return location.equals(location);
+		if (obj == null || !(obj instanceof Offer))
+			return false;
+		Shop shop = (Shop) obj;
+		return location.equals(shop.getLocation());
 	}
 
 	@Override

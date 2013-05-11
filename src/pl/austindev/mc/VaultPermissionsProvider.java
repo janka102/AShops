@@ -23,6 +23,7 @@ import java.util.Set;
 
 import net.milkbowl.vault.permission.Permission;
 
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -52,6 +53,12 @@ public class VaultPermissionsProvider implements PermissionsProvider {
 	}
 
 	@Override
+	public Set<String> getGroups(String playerName, World world) {
+		return new HashSet<String>(Arrays.asList(permissions.getPlayerGroups(
+				world, playerName)));
+	}
+
+	@Override
 	public boolean has(CommandSender player, APermission permission) {
 		if (player.hasPermission(permission.getPath())) {
 			return true;
@@ -62,6 +69,23 @@ public class VaultPermissionsProvider implements PermissionsProvider {
 			}
 		}
 		return false;
+	}
+
+	@Override
+	public boolean has(String playerName, World world, APermission permission) {
+		System.out.println("hasPermission: " + permission.getPath() + " in "
+				+ world.getName() + " (" + playerName + "): "
+				+ permissions.has(world, playerName, permission.getPath()));
+		if (permissions.has(world, playerName, permission.getPath())) {
+			return true;
+		} else {
+			for (APermission p : permission.getImplicating()) {
+				if (has(playerName, world, p)) {
+					return true;
+				}
+			}
+			return false;
+		}
 	}
 
 	@Override
@@ -90,5 +114,10 @@ public class VaultPermissionsProvider implements PermissionsProvider {
 	public boolean hasAll(CommandSender player, APermission permission1,
 			APermission permission2) {
 		return has(player, permission1) && has(player, permission2);
+	}
+
+	@Override
+	public String[] getGroups() {
+		return permissions.getGroups();
 	}
 }

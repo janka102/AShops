@@ -17,9 +17,12 @@
  */
 package pl.austindev.ashops.shops;
 
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -28,6 +31,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import pl.austindev.ashops.AShops;
+import pl.austindev.ashops.ShopUtils;
 import pl.austindev.ashops.keys.ASMessage;
 import pl.austindev.ashops.keys.ASPermission;
 import pl.austindev.mc.ItemUtil;
@@ -35,9 +39,16 @@ import pl.austindev.mc.ItemUtil;
 public class PlayerShopBuyOffer extends PlayerShopOffer {
 	private static final long serialVersionUID = 1L;
 
+	private final transient Set<PlayerShopSellOffer> oppositeOffers = Collections
+			.newSetFromMap(new ConcurrentHashMap<PlayerShopSellOffer, Boolean>());
+
 	public PlayerShopBuyOffer(ItemStack item, double price, int slot,
 			int amount, int maxAmount, String ownerName) {
 		super(item, price, slot, amount, maxAmount, ownerName);
+	}
+
+	public Set<PlayerShopSellOffer> getOppositeOffers() {
+		return oppositeOffers;
 	}
 
 	@Override
@@ -71,7 +82,9 @@ public class PlayerShopBuyOffer extends PlayerShopOffer {
 				if (plugin.getEconomy().transfer(getOwnerName(),
 						player.getName(), value)) {
 					setAmount(getAmount() + amount);
+					transferItems(shopInventory, amount);
 					updateOfferTag(shopInventory);
+					ShopUtils.applyTaxes(plugin, player, value);
 					return null;
 				} else {
 					ItemUtil.add(playerInventory, getItem(), amount);
@@ -82,6 +95,19 @@ public class PlayerShopBuyOffer extends PlayerShopOffer {
 			}
 		} else {
 			return ASMessage.CLIENT_NO_ITEM;
+		}
+	}
+
+	private void transferItems(Inventory inventory, int boughtAmount) {
+		for (PlayerShopSellOffer sellOffer : getOppositeOffers()) {
+			if (boughtAmount < 1)
+				return;
+			int spaceLeft = sellOffer.getMaxAmount() - sellOffer.getAmount();
+			int amountToTransfer = Math.min(spaceLeft, boughtAmount);
+			sellOffer.setAmount(sellOffer.getAmount() + amountToTransfer);
+			setAmount(getAmount() - amountToTransfer);
+			boughtAmount -= amountToTransfer;
+			sellOffer.updateOfferTag(inventory);
 		}
 	}
 
