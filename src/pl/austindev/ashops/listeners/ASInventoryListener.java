@@ -19,8 +19,8 @@ package pl.austindev.ashops.listeners;
 
 import java.util.Set;
 
-import org.bukkit.GameMode;
 import org.bukkit.block.Chest;
+import org.bukkit.block.DoubleChest;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -29,7 +29,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
-import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 
@@ -42,7 +41,6 @@ import pl.austindev.ashops.keys.ASPermission;
 import pl.austindev.ashops.shops.Offer;
 import pl.austindev.ashops.shops.PlayerShopOffer;
 import pl.austindev.ashops.shops.PlayerShopSellOffer;
-import pl.austindev.mc.BlockUtils;
 import pl.austindev.mc.PlayerUtil;
 
 public class ASInventoryListener extends ASListener {
@@ -64,64 +62,10 @@ public class ASInventoryListener extends ASListener {
 			Inventory destination = event.getDestination();
 			if (destination.getType().equals(InventoryType.CHEST)) {
 				Chest chest = (Chest) destination.getHolder();
-				Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
+				Set<Sign> signs = ShopUtils.getAttachedSigns(chest
+						.getLocation());
 				if (ShopUtils.hasShopSign(signs) || ShopUtils.hasTagSign(signs)) {
 					event.setCancelled(true);
-				}
-			}
-		}
-	}
-
-	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
-	public void onInventoryOpen(InventoryOpenEvent event) {
-		Inventory inventory = event.getInventory();
-		if (PlayerUtil.isPlayer(event.getPlayer())) {
-			Player player = (Player) event.getPlayer();
-			if (inventory.getType().equals(InventoryType.CHEST)) {
-				Chest chest = (Chest) inventory.getHolder();
-				Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
-				if (ShopUtils.hasShopSign(signs)) {
-					if (!BlockUtils.isDoubleChest(chest)) {
-						if (ShopUtils.countShopSigns(signs) > 0
-								|| getPermissions().hasOneOf(player,
-										ASPermission.OTHERS_BUY_SHOP,
-										ASPermission.OTHERS_SELL_SHOP)) {
-							if (!player.getGameMode().equals(GameMode.CREATIVE)) {
-								boolean isOwner = ShopUtils.getOwner(signs)
-										.equalsIgnoreCase(player.getName());
-								if (isOwner
-										|| getPermissions().hasOneOf(player,
-												ASPermission.BUY_FROM_SHOP,
-												ASPermission.SELL_TO_SHOP)) {
-									if (isOwner
-											|| ShopUtils.isOpen(signs)
-											|| getPermissions()
-													.hasOneOf(
-															player,
-															ASPermission.OTHERS_BUY_SHOP,
-															ASPermission.OTHERS_SELL_SHOP)) {
-										event.setCancelled(false);
-										getShopsManager().loadOffers(chest);
-									} else {
-										event.setCancelled(true);
-										tell(player, ASMessage.SHOP_CLOSED);
-									}
-								} else {
-									event.setCancelled(true);
-									tell(player, ASMessage.NO_PERMISSION);
-								}
-							} else {
-								tell(player, ASMessage.CREATIVE_ACCESS);
-								event.setCancelled(true);
-							}
-						} else {
-							tell(player, ASMessage.NO_SIGN);
-							event.setCancelled(true);
-						}
-					} else {
-						tell(player, ASMessage.DOUBLE_CHEST_ACCESS);
-						event.setCancelled(true);
-					}
 				}
 			}
 		}
@@ -131,9 +75,11 @@ public class ASInventoryListener extends ASListener {
 	public void onInventoryClose(InventoryCloseEvent event) {
 		Inventory inventory = event.getInventory();
 		if (PlayerUtil.isPlayer(event.getPlayer())) {
-			if (inventory.getType().equals(InventoryType.CHEST)) {
+			if (inventory.getType().equals(InventoryType.CHEST)
+					&& inventory.getHolder() instanceof Chest) {
 				Chest chest = (Chest) inventory.getHolder();
-				if (ShopUtils.hasShopSign(ShopUtils.getAttachedSigns(chest.getLocation()))) {
+				if (ShopUtils.hasShopSign(ShopUtils.getAttachedSigns(chest
+						.getLocation()))) {
 					if (inventory.getViewers().size() <= 1) {
 						try {
 							getShopsManager().unloadOffers(chest);
@@ -156,7 +102,8 @@ public class ASInventoryListener extends ASListener {
 			Inventory inventory = event.getInventory();
 			if (PlayerUtil.isPlayer(event.getWhoClicked())) {
 				Player player = (Player) event.getWhoClicked();
-				if (inventory.getType().equals(InventoryType.CHEST)) {
+				if (inventory.getType().equals(InventoryType.CHEST)
+						&& inventory.getHolder() instanceof Chest) {
 					Chest chest = (Chest) inventory.getHolder();
 					Set<Sign> signs = ShopUtils.getAttachedSigns(chest
 							.getLocation());

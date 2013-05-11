@@ -124,7 +124,8 @@ public class ASBlockListener extends ASListener {
 		Sign sign = (Sign) block.getState();
 		if (ShopUtils.isShopSign(sign)) {
 			Block shopBlock = BlockUtils.getAttachedBlock(sign);
-			if (shopBlock != null && shopBlock.getType().equals(Material.CHEST)) {
+			if (shopBlock != null && shopBlock.getType().equals(Material.CHEST)
+					&& !BlockUtils.isDoubleChest(shopBlock)) {
 				Chest chest = (Chest) shopBlock.getState();
 				Set<Sign> signs = ShopUtils.getAttachedSigns(chest
 						.getLocation());
@@ -134,7 +135,8 @@ public class ASBlockListener extends ASListener {
 			} else {
 				shopBlock = sign.getBlock().getRelative(BlockFace.DOWN);
 				if (shopBlock != null
-						&& shopBlock.getType().equals(Material.CHEST)) {
+						&& shopBlock.getType().equals(Material.CHEST)
+						&& !BlockUtils.isDoubleChest(shopBlock)) {
 					Chest chest = (Chest) shopBlock.getState();
 					Set<Sign> signs = ShopUtils.getAttachedSigns(chest
 							.getLocation());

@@ -24,9 +24,10 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
+import org.bukkit.block.DoubleChest;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event;
+import org.bukkit.event.Event.Result;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.block.Action;
@@ -78,7 +79,8 @@ public class ASPlayerListener extends ASListener {
 				player.getName());
 		if (temporaryValue != null) {
 			if (!event.isCancelled()) {
-				if (block.getType().equals(Material.CHEST)) {
+				if (block.getType().equals(Material.CHEST)
+						|| !BlockUtils.isDoubleChest(block)) {
 					Chest chest = (Chest) block.getState();
 					TempsSource source = temporaryValue.getSource();
 					if (source.equals(ASCommand.ASHOP))
@@ -96,17 +98,15 @@ public class ASPlayerListener extends ASListener {
 				} else {
 					tell(player, ASMessage.ABORTED);
 				}
+				event.setUseInteractedBlock(Result.DENY);
 				event.setCancelled(true);
 			}
-		}
-		if (block.getType().equals(Material.CHEST)) {
-			Chest chest = (Chest) block.getState();
-			Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
-			if (ShopUtils.hasShopSign(signs)) {
-				preventIllegalAccess(event, player, chest);
+		} else {
+			if (block.getType().equals(Material.CHEST)) {
+				tryAccessFromChest(event, player, block);
+			} else if (block.getType().equals(Material.WALL_SIGN)) {
+				tryAccessFromWallSign(event, player, (Sign) block.getState());
 			}
-		} else if (block.getType().equals(Material.WALL_SIGN)) {
-			tryAccessFromWallSign(event, player, (Sign) block.getState());
 		}
 	}
 
@@ -121,90 +121,13 @@ public class ASPlayerListener extends ASListener {
 			if (getShopsManager().isRepairing(player.getName())) {
 				event.setCancelled(true);
 				if (block.getType().equals(Material.CHEST))
-					tryRecreateShop(player, (Chest) block.getState());
+					if (!(block.getState() instanceof DoubleChest))
+						tryRecreateShop(player, (Chest) block.getState());
+					else
+						tell(player, ASMessage.DOUBLE_CHEST);
 				else
 					tell(player, ASMessage.NOT_CHEST);
 			}
-		}
-	}
-
-	private void tryRecreateShop(Player player, Chest chest) {
-		if (!BlockUtils.isDoubleChest(chest)) {
-			Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
-			if (ShopUtils.hasShopSign(signs) || ShopUtils.hasTagSign(signs)) {
-				Inventory inventory = chest.getInventory();
-				String ownerName = null;
-				boolean isServerShop = false;
-				boolean firstItemFound = false;
-				if (ShopUtils.hasShopSign(signs)) {
-					ownerName = ShopUtils.getOwner(signs);
-					if (ShopUtils.getServerShopOwnerLine().equals(ownerName))
-						isServerShop = true;
-					firstItemFound = true;
-				}
-				try {
-					for (int i = 0; i < inventory.getSize(); i++) {
-						ItemStack item = inventory.getItem(i);
-						if (item != null && item.getTypeId() > 0) {
-							firstItemFound = true;
-							Offer offer = Offer.getOffer(item, i);
-							if (offer instanceof PlayerShopOffer) {
-								String itemOwner = ((PlayerShopOffer) offer)
-										.getOwnerName();
-								if (isServerShop) {
-									tell(player, ASMessage.REPAIR_FAILURE);
-									return;
-								}
-								if (ownerName != null) {
-									if (!itemOwner.equalsIgnoreCase(ownerName)) {
-										tell(player, ASMessage.REPAIR_FAILURE);
-										return;
-									}
-								} else {
-									ownerName = itemOwner;
-								}
-							} else {
-								if (firstItemFound && !isServerShop) {
-									tell(player, ASMessage.REPAIR_FAILURE);
-									return;
-								}
-								isServerShop = true;
-							}
-						}
-					}
-				} catch (Exception e) {
-					tell(player, ASMessage.REPAIR_FAILURE);
-					return;
-				}
-				if (firstItemFound) {
-					if (isServerShop) {
-						if (getPermissions().hasOneOf(player,
-								ASPermission.SERVER_BUY_SHOP,
-								ASPermission.SERVER_SELL_SHOP)) {
-							getShopsManager().recreateServerShop(chest);
-							tell(player, ASMessage.SHOP_RECREATED);
-						} else {
-							tell(player, ASMessage.NO_PERMISSION);
-						}
-					} else {
-						if (getPermissions().hasOneOf(player,
-								ASPermission.OTHERS_BUY_SHOP,
-								ASPermission.OTHERS_SELL_SHOP)) {
-							getShopsManager().recreatePlayerShop(chest,
-									ownerName);
-							tell(player, ASMessage.SHOP_RECREATED);
-						} else {
-							tell(player, ASMessage.NO_PERMISSION);
-						}
-					}
-				} else {
-					tell(player, ASMessage.REPAIR_FAILURE);
-				}
-			} else {
-				tell(player, ASMessage.NO_SIGN);
-			}
-		} else {
-			tell(player, ASMessage.DOUBLE_CHEST);
 		}
 	}
 
@@ -212,61 +135,77 @@ public class ASPlayerListener extends ASListener {
 			TemporaryValue temporaryValue) {
 		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (!ShopUtils.hasShopSign(signs)) {
-			if (!BlockUtils.isDoubleChest(chest)) {
-				if (!ShopUtils.hasShopNeighbours(chest.getBlock())) {
-					if (ShopUtils.hasTagSign(signs)) {
-						if (getPermissions().has(player,
-								ASPermission.ANY_REGION)
-								|| getShopsManager().isShopRegion(
-										chest.getLocation())) {
-							Integer shopPrice = temporaryValue
-									.get(Integer.class);
-							if (shopPrice != null) {
-								if (getEconomy().takeFrom(player.getName(),
-										shopPrice)) {
-									getShopsManager().createPlayerShop(chest,
-											player.getName());
-									tell(player, ASMessage.CREATED);
-								} else {
-									tell(player, ASMessage.NO_MONEY, shopPrice);
-								}
+			if (!ShopUtils.hasShopNeighbours(chest.getBlock())) {
+				if (ShopUtils.hasTagSign(signs)) {
+					if (getPermissions().has(player, ASPermission.ANY_REGION)
+							|| getShopsManager().isShopRegion(
+									chest.getLocation())) {
+						Integer shopPrice = temporaryValue.get(Integer.class);
+						if (shopPrice != null) {
+							if (getEconomy().takeFrom(player.getName(),
+									shopPrice)) {
+								getShopsManager().createPlayerShop(chest,
+										player.getName());
+								tell(player, ASMessage.CREATED);
 							} else {
-								String ownerName = temporaryValue
-										.get(String.class);
-								if (ownerName != null) {
-									getShopsManager().createPlayerShop(chest,
-											ownerName);
-									tell(player, ASMessage.CREATED);
-								}
+								tell(player, ASMessage.NO_MONEY, shopPrice);
 							}
 						} else {
-							tell(player, ASMessage.NOT_SHOP_REGION);
+							String ownerName = temporaryValue.get(String.class);
+							if (ownerName != null) {
+								getShopsManager().createPlayerShop(chest,
+										ownerName);
+								tell(player, ASMessage.CREATED);
+							}
 						}
 					} else {
-						tell(player, ASMessage.NO_SIGN);
+						tell(player, ASMessage.NOT_SHOP_REGION);
 					}
 				} else {
-					tell(player, ASMessage.SHOP_NEIGHBOUR);
+					tell(player, ASMessage.NO_SIGN);
 				}
 			} else {
-				tell(player, ASMessage.DOUBLE_CHEST);
+				tell(player, ASMessage.SHOP_NEIGHBOUR);
 			}
 		} else {
 			tell(player, ASMessage.ALREADY_SHOP);
 		}
 	}
 
-	private void preventIllegalAccess(PlayerInteractEvent event, Player player,
-			Chest chest) {
-		if (BlockUtils.isDoubleChest(chest)) {
-			tell(player, ASMessage.DOUBLE_CHEST_ACCESS);
-			event.setCancelled(true);
-			event.setUseInteractedBlock(Event.Result.DENY);
-		} else if (player.getGameMode().equals(GameMode.CREATIVE)) {
-			if (BlockUtils.isDoubleChest(chest)) {
-				tell(player, ASMessage.CREATIVE_ACCESS);
-				event.setCancelled(true);
-				event.setUseInteractedBlock(Event.Result.DENY);
+	private void tryAccessFromChest(PlayerInteractEvent event, Player player,
+			Block block) {
+		if (!BlockUtils.isDoubleChest(block)) {
+			Chest chest = (Chest) block.getState();
+			Set<Sign> signs = ShopUtils.getAttachedSigns(block.getLocation());
+			if (ShopUtils.hasShopSign(signs)) {
+				if (!player.getGameMode().equals(GameMode.CREATIVE)) {
+					boolean isOwner = ShopUtils.getOwner(signs)
+							.equalsIgnoreCase(player.getName());
+					if (isOwner
+							|| getPermissions().hasOneOf(player,
+									ASPermission.BUY_FROM_SHOP,
+									ASPermission.SELL_TO_SHOP)) {
+						if (isOwner
+								|| ShopUtils.isOpen(signs)
+								|| getPermissions().hasOneOf(player,
+										ASPermission.OTHERS_BUY_SHOP,
+										ASPermission.OTHERS_SELL_SHOP)) {
+							event.setCancelled(false);
+							event.setUseInteractedBlock(Result.ALLOW);
+							event.setUseItemInHand(Result.DENY);
+							getShopsManager().loadOffers(chest);
+						} else {
+							event.setCancelled(true);
+							tell(player, ASMessage.SHOP_CLOSED);
+						}
+					} else {
+						event.setCancelled(true);
+						tell(player, ASMessage.NO_PERMISSION);
+					}
+				} else {
+					event.setCancelled(true);
+					tell(player, ASMessage.CREATIVE_ACCESS);
+				}
 			}
 		}
 	}
@@ -279,25 +218,36 @@ public class ASPlayerListener extends ASListener {
 					|| !shopBlock.getType().equals(Material.CHEST))
 				shopBlock = sign.getBlock().getRelative(BlockFace.DOWN);
 			if (shopBlock != null && shopBlock.getType().equals(Material.CHEST)) {
-				Chest chest = (Chest) shopBlock.getState();
-				boolean isOwner = ShopUtils.getOwner(sign).equalsIgnoreCase(
-						player.getName());
-				if (isOwner
-						|| getPermissions().hasOneOf(player,
-								ASPermission.BUY_FROM_SHOP,
-								ASPermission.SELL_TO_SHOP)) {
-					if (ShopUtils.isOpen(sign)
-							|| isOwner
-							|| getPermissions().hasOneOf(player,
-									ASPermission.OTHERS_BUY_SHOP,
-									ASPermission.OTHERS_SELL_SHOP)) {
-						player.openInventory(chest.getInventory());
-						event.setCancelled(false);
+				if (!BlockUtils.isDoubleChest(shopBlock)) {
+					Chest chest = (Chest) shopBlock.getState();
+					if (!player.getGameMode().equals(GameMode.CREATIVE)) {
+						boolean isOwner = ShopUtils.getOwner(sign)
+								.equalsIgnoreCase(player.getName());
+						if (isOwner
+								|| getPermissions().hasOneOf(player,
+										ASPermission.BUY_FROM_SHOP,
+										ASPermission.SELL_TO_SHOP)) {
+							if (ShopUtils.isOpen(sign)
+									|| isOwner
+									|| getPermissions().hasOneOf(player,
+											ASPermission.OTHERS_BUY_SHOP,
+											ASPermission.OTHERS_SELL_SHOP)) {
+								event.setUseInteractedBlock(Result.DENY);
+								event.setUseItemInHand(Result.DENY);
+								event.setCancelled(false);
+								player.openInventory(chest.getInventory());
+							} else {
+								tell(player, ASMessage.SHOP_CLOSED);
+								event.setCancelled(true);
+							}
+						} else {
+							tell(player, ASMessage.NO_PERMISSION);
+							event.setCancelled(true);
+						}
 					} else {
-						tell(player, ASMessage.SHOP_CLOSED);
+						tell(player, ASMessage.CREATIVE_ACCESS);
+						event.setCancelled(true);
 					}
-				} else {
-					tell(player, ASMessage.NO_PERMISSION);
 				}
 			}
 		}
@@ -307,15 +257,11 @@ public class ASPlayerListener extends ASListener {
 			TemporaryValue temporaryValue) {
 		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (!ShopUtils.hasShopSign(signs)) {
-			if (!BlockUtils.isDoubleChest(chest)) {
-				if (ShopUtils.hasTagSign(signs)) {
-					getShopsManager().createServerShop(chest);
-					tell(player, ASMessage.CREATED);
-				} else {
-					tell(player, ASMessage.NO_SIGN);
-				}
+			if (ShopUtils.hasTagSign(signs)) {
+				getShopsManager().createServerShop(chest);
+				tell(player, ASMessage.CREATED);
 			} else {
-				tell(player, ASMessage.DOUBLE_CHEST);
+				tell(player, ASMessage.NO_SIGN);
 			}
 		} else {
 			tell(player, ASMessage.ALREADY_SHOP);
@@ -462,4 +408,80 @@ public class ASPlayerListener extends ASListener {
 			tell(player, ASMessage.NOT_SHOP);
 		}
 	}
+
+	private void tryRecreateShop(Player player, Chest chest) {
+		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
+		if (ShopUtils.hasShopSign(signs) || ShopUtils.hasTagSign(signs)) {
+			Inventory inventory = chest.getInventory();
+			String ownerName = null;
+			boolean isServerShop = false;
+			boolean firstItemFound = false;
+			if (ShopUtils.hasShopSign(signs)) {
+				ownerName = ShopUtils.getOwner(signs);
+				if (ShopUtils.getServerShopOwnerLine().equals(ownerName))
+					isServerShop = true;
+				firstItemFound = true;
+			}
+			try {
+				for (int i = 0; i < inventory.getSize(); i++) {
+					ItemStack item = inventory.getItem(i);
+					if (item != null && item.getTypeId() > 0) {
+						firstItemFound = true;
+						Offer offer = Offer.getOffer(item, i);
+						if (offer instanceof PlayerShopOffer) {
+							String itemOwner = ((PlayerShopOffer) offer)
+									.getOwnerName();
+							if (isServerShop) {
+								tell(player, ASMessage.REPAIR_FAILURE);
+								return;
+							}
+							if (ownerName != null) {
+								if (!itemOwner.equalsIgnoreCase(ownerName)) {
+									tell(player, ASMessage.REPAIR_FAILURE);
+									return;
+								}
+							} else {
+								ownerName = itemOwner;
+							}
+						} else {
+							if (firstItemFound && !isServerShop) {
+								tell(player, ASMessage.REPAIR_FAILURE);
+								return;
+							}
+							isServerShop = true;
+						}
+					}
+				}
+			} catch (Exception e) {
+				tell(player, ASMessage.REPAIR_FAILURE);
+				return;
+			}
+			if (firstItemFound) {
+				if (isServerShop) {
+					if (getPermissions().hasOneOf(player,
+							ASPermission.SERVER_BUY_SHOP,
+							ASPermission.SERVER_SELL_SHOP)) {
+						getShopsManager().recreateServerShop(chest);
+						tell(player, ASMessage.SHOP_RECREATED);
+					} else {
+						tell(player, ASMessage.NO_PERMISSION);
+					}
+				} else {
+					if (getPermissions().hasOneOf(player,
+							ASPermission.OTHERS_BUY_SHOP,
+							ASPermission.OTHERS_SELL_SHOP)) {
+						getShopsManager().recreatePlayerShop(chest, ownerName);
+						tell(player, ASMessage.SHOP_RECREATED);
+					} else {
+						tell(player, ASMessage.NO_PERMISSION);
+					}
+				}
+			} else {
+				tell(player, ASMessage.REPAIR_FAILURE);
+			}
+		} else {
+			tell(player, ASMessage.NO_SIGN);
+		}
+	}
+
 }

@@ -297,7 +297,8 @@ public class ShopsManager {
 
 	private void restoreOffers(String ownerName, Shop shop) {
 		Block block = shop.getLocation().getBlock();
-		if (block != null && block.getType().equals(Material.CHEST)) {
+		if (block != null && block.getType().equals(Material.CHEST)
+				&& !BlockUtils.isDoubleChest(block)) {
 			Chest chest = (Chest) block.getState();
 			Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 			ShopUtils.setShopSigns(signs, ownerName);

@@ -24,7 +24,6 @@ import java.util.Set;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.Chest;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.inventory.Inventory;
@@ -54,10 +53,11 @@ public abstract class BlockUtils {
 		return neighbours;
 	}
 
-	public static boolean isDoubleChest(Chest chest) {
-		for (Block neighbour : getHorizontalNeighbours(chest.getBlock()))
-			if (neighbour.getType().equals(Material.CHEST))
-				return true;
+	public static boolean isDoubleChest(Block block) {
+		if (block.getType().equals(Material.CHEST))
+			for (Block neighbour : getHorizontalNeighbours(block))
+				if (neighbour.getType().equals(Material.CHEST))
+					return true;
 		return false;
 	}
 
