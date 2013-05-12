@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ======================================================================
+     May 10, 2013 7:33:53 PM
+
+     AShops
+     With added support to use an item ID as the currency
+     ====================================================================== -->
+<project name="AShops" default="toServer">
+	<property name="pluginname" value="AShops"/>
+
+	<property name="craftbukkit" location="lib/craftbukkit.jar"/>
+	<property name="vault" location="lib/Vault.jar"/>
+	<property name="worldedit" location="lib/worldedit.jar"/>
+	<property name="worldguard" location="lib/worldguard.jar"/>
+	
+	<property name="build" location="build"/>
+	<property name="src" location="src"/>
+	<property name="bin" location="bin"/>
+	
+	<property name="plugins" location="/Users/jesse/Documents/server4bullseye/plugins"></property>
+	
+	<!-- - - - - - - - - - - - - - - - - - 
+	      Clean out the compile folder for .class files
+	    - - - - - - - - - - - - - - - - - -->
+	<target name="init">
+		<delete dir="${bin}"/>
+		<mkdir dir="${bin}"/>
+	</target>
+	
+    <!-- =================================
+          Compile java files into .class
+         ================================= -->
+	<target name="compile" depends="init">
+		<javac srcdir="${src}/pl/austindev" destdir="${bin}" includeantruntime="false">
+			<classpath>
+				<pathelement location="${craftbukkit}"/>
+				<pathelement location="${vault}"/>
+				<pathelement location="${worldedit}"/>
+				<pathelement location="${worldguard}"/>
+			</classpath>
+		</javac>
+		<copy todir="${bin}/pl/austindev/ashops/lang/" >
+			<fileset dir="${src}/pl/austindev/ashops/lang/" includes="**"/>  
+		 </copy>
+	</target>
+	
+	<!-- - - - - - - - - - - - - - - - - -
+	      Make .jar file
+	    - - - - - - - - - - - - - - - - - -->
+	<target name="deploy" depends="compile">
+		<jar jarfile="${build}/${pluginname}.jar">
+			<fileset dir="${bin}"/>
+			<fileset file="config.yml"/>
+			<fileset file="plugin.yml"/>
+		</jar>
+	</target>
+	
+    <!-- - - - - - - - - - - - - - - - - -
+          Move jar to the plugins folder
+         - - - - - - - - - - - - - - - - - -->
+	<target name="toServer" depends="deploy">
+		<copy file="${build}/${pluginname}.jar" todir="${plugins}"/>
+	</target>
+
+</project>
