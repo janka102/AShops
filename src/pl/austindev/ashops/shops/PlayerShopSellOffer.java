@@ -95,7 +95,7 @@ public class PlayerShopSellOffer extends PlayerShopOffer {
 			if (amount > 0) {
 				amount = ItemUtil.add(playerInventory, getItem(), amount);
 				double value = getPrice() * amount;
-				if (plugin.getEconomy().transfer(player.getName(),
+				if (plugin.getEconomy().transfer(player,
 						getOwnerName(), value)) {
 					setAmount(getAmount() - amount);
 					updateOfferTag(shopInventory);

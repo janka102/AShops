@@ -142,7 +142,7 @@ public class ASPlayerListener extends ASListener {
 									chest.getLocation())) {
 						Integer shopPrice = temporaryValue.get(Integer.class);
 						if (shopPrice != null) {
-							if (getEconomy().takeFrom(player.getName(),
+							if (getEconomy().takeFrom(player,
 									shopPrice)) {
 								getShopsManager().createPlayerShop(chest,
 										player.getName());

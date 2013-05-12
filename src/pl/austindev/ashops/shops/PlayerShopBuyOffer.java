@@ -80,7 +80,7 @@ public class PlayerShopBuyOffer extends PlayerShopOffer {
 				amount = ItemUtil.remove(playerInventory, getItem(), amount);
 				double value = getPrice() * amount;
 				if (plugin.getEconomy().transfer(getOwnerName(),
-						player.getName(), value)) {
+						player, value)) {
 					setAmount(getAmount() + amount);
 					transferItems(shopInventory, amount);
 					updateOfferTag(shopInventory);

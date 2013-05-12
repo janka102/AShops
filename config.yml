@@ -1,6 +1,11 @@
 # Plugin language. Available values: en | pl
 language: en
 
+# If you want to use an item ID for the currency to be used
+use_id_for_currency: false
+# The ID of the item to be used for the currency, if the above is true. Default is emerald
+currency_id: 388
+
 # Container for data. Available values: file | mysql
 data_container: file
 # Database Connection Settings. If you use file as a container, you don't have to set it.

@@ -17,14 +17,18 @@
  */
 package pl.austindev.mc;
 
+import org.bukkit.entity.Player;
+
 public interface EconomyProvider {
-	public boolean has(String playerName, double amount);
+	public boolean has(Player player, double amount);
 
-	public boolean takeFrom(String playerName, double amount);
+	public boolean takeFrom(Player player, double amount);
 
-	public boolean transfer(String from, String to, double amount);
+	public boolean transfer(Player from, String to, double amount);
 
-	public boolean giveTo(String playerName, double amount);
+	public boolean transfer(String from, Player to, double amount);
+
+	public boolean giveTo(Player player, double amount);
 
 	public boolean hasAccount(String playerName);
 

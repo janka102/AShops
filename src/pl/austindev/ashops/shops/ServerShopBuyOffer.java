@@ -66,7 +66,7 @@ public class ServerShopBuyOffer extends ServerShopOffer {
 			double value = getPrice() * amount;
 			String accountName = ShopUtils.getServerAccountName();
 			if (accountName != null) {
-				if (plugin.getEconomy().transfer(accountName, player.getName(),
+				if (plugin.getEconomy().transfer(accountName, player,
 						value)) {
 					updateOfferTag(shopInventory);
 					ShopUtils.applyTaxes(plugin, player, value);
@@ -76,7 +76,7 @@ public class ServerShopBuyOffer extends ServerShopOffer {
 					return ASMessage.OWNER_NO_MONEY;
 				}
 			} else {
-				if (plugin.getEconomy().giveTo(player.getName(), value)) {
+				if (plugin.getEconomy().giveTo(player, value)) {
 					ShopUtils.applyTaxes(plugin, player, value);
 					return null;
 				} else {

@@ -47,7 +47,7 @@ public class AShopCommandExecutor extends ASCommandExecutor {
 	private void tryCreateOwnShop(Player player) {
 		if (getShopsManager().canHaveMoreShops(player)) {
 			int shopPrice = getShopsManager().getShopPrice(player);
-			if (getEconomy().has(player.getName(), shopPrice)) {
+			if (getEconomy().has(player, shopPrice)) {
 				getPlugin().getTemporaryValues().put(player.getName(),
 						getACommand(), shopPrice);
 				tell(player, ASMessage.SELECT_CHEST);

@@ -70,7 +70,7 @@ public class ServerShopSellOffer extends ServerShopOffer {
 				double value = getPrice(player, plugin) * amount;
 				String accountName = ShopUtils.getServerAccountName();
 				if (accountName != null) {
-					if (plugin.getEconomy().transfer(player.getName(),
+					if (plugin.getEconomy().transfer(player,
 							accountName, value)) {
 						updateOfferTag(shopInventory);
 						return null;
@@ -79,7 +79,7 @@ public class ServerShopSellOffer extends ServerShopOffer {
 						return ASMessage.CLIENT_NO_MONEY;
 					}
 				} else {
-					if (plugin.getEconomy().takeFrom(player.getName(), value)) {
+					if (plugin.getEconomy().takeFrom(player, value)) {
 						return null;
 					} else {
 						ItemUtil.remove(playerInventory, getItem(), amount);
