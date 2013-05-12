@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -38,6 +39,7 @@ import pl.austindev.ashops.keys.ASPermission;
 import pl.austindev.ashops.shops.Offer;
 import pl.austindev.ashops.shops.PlayerShopOffer;
 import pl.austindev.mc.BlockUtils;
+import pl.austindev.mc.ImprovedOfflinePlayer;
 
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
@@ -271,11 +273,24 @@ public class ShopUtils {
 	}
 
 	public static void applyTaxes(AShops plugin, Player player, double value) {
-		applyTaxes(plugin, player.getWorld(), player.getName(), value);
+		applyTaxes(plugin, player.getWorld(), player, value);
+	}
+	
+	public static void applyTaxes(AShops plugin, World world, String playerName, double value) {
+		Player player = Bukkit.getPlayer(playerName);
+		if (player != null) {
+			applyTaxes(plugin, player.getWorld(), player, value);
+		} else {
+			ImprovedOfflinePlayer imprOfflinePlayer = new ImprovedOfflinePlayer(playerName);
+			if(!imprOfflinePlayer.exists()) return;
+			Player offlinePlayer = (Player) imprOfflinePlayer;
+			applyTaxes(plugin, world, offlinePlayer, value);
+		}
 	}
 
 	public static void applyTaxes(AShops plugin, World world,
-			String playerName, double value) {
+			Player player, double value) {
+		String playerName = player.getName();
 		if (!plugin.getPermissions().has(playerName, world,
 				ASPermission.NO_TAXES)) {
 			int taxes = 0;
@@ -290,10 +305,10 @@ public class ShopUtils {
 			if (taxes > 0) {
 				double toTake = value * ((double) taxes / 100);
 				if (TAXES_ACCOUNT_NAME != null) {
-					plugin.getEconomy().transfer(playerName,
+					plugin.getEconomy().transfer(player,
 							TAXES_ACCOUNT_NAME, toTake);
 				} else {
-					plugin.getEconomy().takeFrom(playerName, toTake);
+					plugin.getEconomy().takeFrom(player, toTake);
 				}
 			}
 		}

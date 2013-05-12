@@ -21,6 +21,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 public abstract class ItemUtil {
 
@@ -51,9 +52,15 @@ public abstract class ItemUtil {
 		return -1;
 	}
 
-	@SuppressWarnings("deprecation")
 	public static int remove(Inventory inventory, ItemStack item,
 			int requestedAmount) {
+		return remove(inventory, item, requestedAmount, new ImprovedOfflinePlayer(
+					"does-not-exist...."));
+	}
+	
+	@SuppressWarnings("deprecation")
+	public static int remove(Inventory inventory, ItemStack item,
+			int requestedAmount, ImprovedOfflinePlayer iop) {
 		int leftAmount = requestedAmount;
 		for (int i = firstSimilar(inventory, item); i > -1 && leftAmount > 0; i = firstSimilar(
 				inventory, item)) {
@@ -64,14 +71,24 @@ public abstract class ItemUtil {
 					.setItem(i, itemInSlot.getAmount() > 0 ? itemInSlot : null);
 			leftAmount -= amountToRemove;
 		}
-		if (inventory.getType().equals(InventoryType.PLAYER))
+		if (inventory.getType().equals(InventoryType.PLAYER)) {
 			((Player) inventory.getHolder()).updateInventory();
+			if (iop.exists()) {
+				iop.setInventory((PlayerInventory) inventory);
+			}
+		}
 		return requestedAmount - leftAmount;
 	}
 
-	@SuppressWarnings("deprecation")
 	public static int add(Inventory inventory, ItemStack item,
 			int requestedAmount) {
+		return add(inventory, item, requestedAmount, new ImprovedOfflinePlayer(
+					"does-not-exist...."));
+	}
+	
+	@SuppressWarnings("deprecation")
+	public static int add(Inventory inventory, ItemStack item,
+			int requestedAmount, ImprovedOfflinePlayer iop) {
 		int leftAmount = requestedAmount;
 		int firstEmpty = inventory.firstEmpty();
 		int first = firstSimilar(inventory, item);
@@ -99,8 +116,24 @@ public abstract class ItemUtil {
 				}
 			}
 		}
-		if (inventory.getType().equals(InventoryType.PLAYER))
+		if (inventory.getType().equals(InventoryType.PLAYER)) {
 			((Player) inventory.getHolder()).updateInventory();
+			if (iop.exists()) {
+				iop.setInventory((PlayerInventory) inventory);
+			}
+		}
 		return requestedAmount - leftAmount;
+	}
+
+	public static boolean has(Inventory inventory, ItemStack item,
+			int needAmount) {
+		int first = firstSimilar(inventory, item);
+		int hasAmount = inventory.getItem(first).getAmount();
+		if (first > -1)
+			for (int i = first; i < inventory.getSize(); i++) {
+				if (item.isSimilar(inventory.getItem(i)))
+					hasAmount += inventory.getItem(i).getAmount();
+			}
+		return hasAmount >= needAmount;
 	}
 }
