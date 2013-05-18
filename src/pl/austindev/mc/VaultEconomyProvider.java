@@ -24,6 +24,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
+import pl.austindev.ashops.ShopUtils;
 import pl.austindev.ashops.keys.ASConfigurationPath;
 
 public class VaultEconomyProvider implements EconomyProvider {
@@ -35,10 +36,8 @@ public class VaultEconomyProvider implements EconomyProvider {
 		RegisteredServiceProvider<Economy> rsp = plugin.getServer()
 				.getServicesManager().getRegistration(Economy.class);
 
-		useID = plugin.getConfiguration().getBoolean(
-				ASConfigurationPath.USE_ID);
-		currencyID = plugin.getConfiguration().getInt(
-				ASConfigurationPath.CURRENCY_ID);
+		loadConfigProperties(plugin);
+		
 		if (rsp != null) {
 			economy = rsp.getProvider();
 			if (economy == null) {
@@ -50,6 +49,12 @@ public class VaultEconomyProvider implements EconomyProvider {
 		}
 	}
 
+	@Override
+	public void loadConfigProperties(APlugin plugin) {
+		useID = plugin.getConfiguration().getBoolean(ASConfigurationPath.USE_ID);
+		currencyID = plugin.getConfiguration().getInt(ASConfigurationPath.CURRENCY_ID);
+	}
+	
 	@Override
 	public boolean hasAccount(String playerName) {
 		if (useID) {

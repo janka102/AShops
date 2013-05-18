@@ -51,21 +51,21 @@ public class ASInventoryListener extends ASListener {
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
 	public void onInvnetoryMoveItem(InventoryMoveItemEvent event) {
 		Inventory source = event.getSource();
-		if (source.getType().equals(InventoryType.CHEST)) {
+		if (source.getType().equals(InventoryType.CHEST)
+				&& source.getHolder() instanceof Chest) {
 			Chest chest = (Chest) source.getHolder();
 			Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 			if (ShopUtils.hasShopSign(signs) || ShopUtils.hasTagSign(signs)) {
 				event.setCancelled(true);
 			}
-		} else {
-			Inventory destination = event.getDestination();
-			if (destination.getType().equals(InventoryType.CHEST)) {
-				Chest chest = (Chest) destination.getHolder();
-				Set<Sign> signs = ShopUtils.getAttachedSigns(chest
-						.getLocation());
-				if (ShopUtils.hasShopSign(signs) || ShopUtils.hasTagSign(signs)) {
-					event.setCancelled(true);
-				}
+		}
+		Inventory destination = event.getDestination();
+		if (destination.getType().equals(InventoryType.CHEST)
+				&& destination.getHolder() instanceof Chest) {
+			Chest chest = (Chest) destination.getHolder();
+			Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
+			if (ShopUtils.hasShopSign(signs) || ShopUtils.hasTagSign(signs)) {
+				event.setCancelled(true);
 			}
 		}
 	}
@@ -155,6 +155,8 @@ public class ASInventoryListener extends ASListener {
 						getShopsManager().removeOffer(chest, slot);
 					else
 						tell(player, ASMessage.COLLECT_ITEMS);
+				} else {
+					inventory.setItem(slot, null);
 				}
 			} else {
 				Offer offer = getShopsManager().getOffer(chest, slot);
@@ -170,6 +172,8 @@ public class ASInventoryListener extends ASListener {
 									((PlayerShopOffer) offer).collect(player,
 											inventory), player);
 					}
+				} else {
+					inventory.setItem(slot, null);
 				}
 			}
 		} else {
@@ -187,11 +191,15 @@ public class ASInventoryListener extends ASListener {
 		if (slot == event.getRawSlot()) {
 			int amount = InventoryUtils.getClickedAmount(event);
 			Offer offer = getShopsManager().getOffer(chest, slot);
-			if (offer != null
-					&& getPermissions().has(player, offer.getPermission()))
-				assertFailureMessage(
-						offer.trade(getPlugin(), player, inventory, amount),
-						player);
+			if (offer != null)
+				if (getPermissions().has(player, offer.getPermission()))
+					assertFailureMessage(
+							offer.trade(getPlugin(), player, inventory, amount),
+							player);
+				else
+					tell(player, ASMessage.NO_PERMISSION);
+			else
+				inventory.setItem(slot, null);
 		}
 
 	}
@@ -206,11 +214,14 @@ public class ASInventoryListener extends ASListener {
 			} else {
 				int amount = InventoryUtils.getClickedAmount(event);
 				Offer offer = getShopsManager().getOffer(chest, slot);
-				if (offer != null
-						&& getPermissions().has(player, offer.getPermission()))
-					assertFailureMessage(
-							offer.trade(getPlugin(), player, inventory, amount),
-							player);
+				if (offer != null)
+					if (getPermissions().has(player, offer.getPermission()))
+						assertFailureMessage(offer.trade(getPlugin(), player,
+								inventory, amount), player);
+					else
+						tell(player, ASMessage.NO_PERMISSION);
+				else
+					inventory.setItem(slot, null);
 			}
 		}
 
@@ -223,11 +234,15 @@ public class ASInventoryListener extends ASListener {
 		if (slot == event.getRawSlot()) {
 			int amount = InventoryUtils.getClickedAmount(event);
 			Offer offer = getShopsManager().getOffer(chest, slot);
-			if (offer != null
-					&& getPermissions().has(player, offer.getPermission()))
-				assertFailureMessage(
-						offer.trade(getPlugin(), player, inventory, amount),
-						player);
+			if (offer != null)
+				if (getPermissions().has(player, offer.getPermission()))
+					assertFailureMessage(
+							offer.trade(getPlugin(), player, inventory, amount),
+							player);
+				else
+					tell(player, ASMessage.NO_PERMISSION);
+			else
+				inventory.setItem(slot, null);
 		}
 	}
 

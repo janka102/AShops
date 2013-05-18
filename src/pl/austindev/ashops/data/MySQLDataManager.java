@@ -1,5 +1,5 @@
 /*
- * AShops Bukkit Plugin
+f * AShops Bukkit Plugin
  * Copyright 2013 Austin Reuter (_austinho)
  * 
  * This program is free software: you can redistribute it and/or modify
@@ -21,69 +21,53 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.inventory.ItemStack;
 
 import pl.austindev.ashops.AShops;
+import pl.austindev.ashops.keys.ASConfigurationPath;
 import pl.austindev.ashops.shops.Offer;
 import pl.austindev.ashops.shops.OfferType;
 import pl.austindev.ashops.shops.Owner;
 import pl.austindev.ashops.shops.PlayerShopBuyOffer;
 import pl.austindev.ashops.shops.PlayerShopOffer;
-import pl.austindev.ashops.shops.PlayerShopSellOffer;
 import pl.austindev.ashops.shops.ServerShopBuyOffer;
 import pl.austindev.ashops.shops.ServerShopOffer;
-import pl.austindev.ashops.shops.ServerShopSellOffer;
 import pl.austindev.ashops.shops.Shop;
-import pl.austindev.mc.SerializationUtils;
 
 public class MySQLDataManager extends DataManager {
-	private final SimpleMySQLManager mysqlManager;
+	private final ConcurrentMap<String, Integer> shopCounter = new ConcurrentHashMap<String, Integer>();
+	private final String url;
 
-	private final Map<String, Integer> shopCounter = new HashMap<String, Integer>();
-
-	private static final String PLAYER_SHOPS_TABLE_NAME = "as_player_shops";
-	private static final String SERVER_SHOPS_TABLE_NAME = "as_server_shops";
-	private static final String PLAYER_OFFERS_TABLE_NAME = "as_ps_offers";
-	private static final String SERVER_OFFERS_TABLE_NAME = "as_ss_offers";
-
-	public MySQLDataManager(AShops plugin) throws DataAccessException {
+	public MySQLDataManager(AShops plugin) {
 		super(plugin);
-		try {
-			mysqlManager = new SimpleMySQLManager(plugin);
-		} catch (InstantiationException e) {
-			throw new DataAccessException(e);
-		} catch (IllegalAccessException e) {
-			throw new DataAccessException(e);
-		} catch (ClassNotFoundException e) {
-			throw new DataAccessException(e);
-		} catch (SQLException e) {
-			throw new DataAccessException(e);
-		}
+		this.url = getUrl();
 	}
 
 	@Override
 	public LoadResult start() throws DataAccessException {
 		Set<Owner> owners = new HashSet<Owner>();
-		Set<Shop> serverShops = new HashSet<Shop>();
+		Set<Shop> serverShop = new HashSet<Shop>();
 		try {
-			Connection connection = mysqlManager.getConnection();
+			Connection connection = getConnection();
 			try {
 				Statement statement = connection.createStatement();
 				try {
-					createTables(statement);
+					ShopsDBUtils.createPlayerShopsTable(statement);
+					ShopsDBUtils.createServerShopsTable(statement);
+					ShopsDBUtils.createPSOffersTable(statement);
+					ShopsDBUtils.createSSOffersTable(statement);
 					owners.addAll(getOwners(statement));
-					serverShops.addAll(getServerShops(statement));
+					serverShop.addAll(getServerShops(statement));
 				} finally {
 					statement.close();
 				}
@@ -91,197 +75,207 @@ public class MySQLDataManager extends DataManager {
 				connection.close();
 			}
 		} catch (SQLException e) {
-			throw new DataAccessException(
-					"Could not connect to a database. Check the plugin's config file.",
-					e);
-		} catch (IOException e) {
-			throw new DataAccessException(
-					"Could not connect to a database. Check the plugin's config file.",
-					e);
-		} catch (ClassNotFoundException e) {
-			throw new DataAccessException(
-					"Could not connect to a database. Check the plugin's config file.",
-					e);
+			throw new DataAccessException("Database error.", e);
 		}
-		synchronized (shopCounter) {
-			for (Owner owner : owners) {
-				shopCounter.put(owner.getName(), owner.getShops().size());
-			}
-		}
-		return new LoadResult(owners, serverShops);
+		for (Owner owner : owners)
+			shopCounter.put(owner.getName().toLowerCase(), owner.getShops()
+					.size());
+		return new LoadResult(owners, serverShop);
 	}
 
 	@Override
 	public int countShops(String ownerName) {
-		synchronized (shopCounter) {
-			Integer counter = shopCounter.get(ownerName);
-			return counter != null ? counter : 0;
-		}
+		Integer counter = shopCounter.get(ownerName.toLowerCase());
+		return counter != null ? counter : 0;
 	}
 
 	@Override
-	public void addPlayerShop(Location location, String ownerName) {
-		removePlayerShop(location, ownerName);
-		mysqlManager.scheduleQuery("INSERT INTO " + PLAYER_SHOPS_TABLE_NAME
-				+ " VALUES(NULL, '" + ownerName + "', '"
-				+ location.getWorld().getName() + "', " + location.getBlockX()
-				+ " ," + location.getBlockY() + " , " + location.getBlockZ()
-				+ " );");
-		synchronized (shopCounter) {
-			Integer counter = shopCounter.get(ownerName);
-			shopCounter.put(ownerName,
-					counter != null ? shopCounter.get(ownerName) + 1 : 1);
-		}
-	}
+	public void addPlayerShop(final Location location, final String ownerName) {
+		new DBTask() {
 
-	@Override
-	public void addServerShop(Location location) {
-		removeServerShop(location);
-		mysqlManager.scheduleQuery("INSERT INTO " + SERVER_SHOPS_TABLE_NAME
-				+ " VALUES(NULL, '" + location.getWorld().getName() + "', "
-				+ location.getBlockX() + " ," + location.getBlockY() + " , "
-				+ location.getBlockZ() + " );");
-	}
-
-	@Override
-	public void removePlayerShop(Location location, String ownerName) {
-		mysqlManager.scheduleQuery(
-				"DELETE FROM " + PLAYER_OFFERS_TABLE_NAME
-						+ " WHERE ps_id IN (SELECT ps_id FROM "
-						+ PLAYER_SHOPS_TABLE_NAME + " WHERE world='"
-						+ location.getWorld().getName() + "' && x="
-						+ location.getBlockX() + " && y="
-						+ location.getBlockY() + " && z="
-						+ location.getBlockZ() + ");",
-				"DELETE FROM " + PLAYER_SHOPS_TABLE_NAME + " WHERE owner='"
-						+ ownerName + "' && world='"
-						+ location.getWorld().getName() + "' && x="
-						+ location.getBlockX() + " && y="
-						+ location.getBlockY() + " && z="
-						+ location.getBlockZ() + ";");
-		synchronized (shopCounter) {
-			Integer counter = shopCounter.get(ownerName);
-			if (counter != null) {
-				if (counter > 1)
-					shopCounter.put(ownerName, counter - 1);
-				else
-					shopCounter.remove(ownerName);
+			@Override
+			protected void run(Statement statement) throws SQLException {
+				ShopsDBUtils.removePlayerShop(statement, location);
+				ShopsDBUtils.addPlayerShop(statement, location, ownerName);
+				incrementCounter(ownerName);
 			}
-		}
+
+		}.perform(getPlugin(), this);
 	}
 
 	@Override
-	public void removeServerShop(Location location) {
-		mysqlManager.scheduleQuery(
-				"DELETE FROM " + SERVER_OFFERS_TABLE_NAME
-						+ " WHERE ss_id IN (SELECT ss_id FROM "
-						+ SERVER_SHOPS_TABLE_NAME + " WHERE world='"
-						+ location.getWorld().getName() + "' && x="
-						+ location.getBlockX() + " && y="
-						+ location.getBlockY() + " && z="
-						+ location.getBlockZ() + ");",
-				"DELETE FROM " + SERVER_SHOPS_TABLE_NAME + " WHERE world='"
-						+ location.getWorld().getName() + "' && x="
-						+ location.getBlockX() + " && y="
-						+ location.getBlockY() + " && z="
-						+ location.getBlockZ() + ";");
+	public void addServerShop(final Location location) {
+		new DBTask() {
+
+			@Override
+			protected void run(Statement statement) throws SQLException {
+				ShopsDBUtils.removePlayerShop(statement, location);
+				ShopsDBUtils.addServerShop(statement, location);
+			}
+		}.perform(getPlugin(), this);
 	}
 
 	@Override
-	public void addOffer(Location location, Offer offer) {
-		if (offer instanceof PlayerShopOffer) {
-			addPlayerOffer(offer instanceof PlayerShopBuyOffer ? OfferType.BUY
-					: OfferType.SELL, (PlayerShopOffer) offer, location);
-		} else {
-			addServerOffer(offer instanceof ServerShopBuyOffer ? OfferType.BUY
-					: OfferType.SELL, (ServerShopOffer) offer, location);
-		}
+	public void removePlayerShop(final Location location, final String ownerName) {
+		new DBTask() {
+
+			@Override
+			protected void run(Statement statement) throws SQLException {
+				ShopsDBUtils.removePlayerShop(statement, location);
+				decrementCounter(ownerName);
+			}
+		}.perform(getPlugin(), this);
 	}
 
 	@Override
-	public void removeOffer(Location location, Offer offer) {
-		boolean isPlayerOffer = offer instanceof PlayerShopOffer;
-		mysqlManager.scheduleQuery("DELETE FROM "
-				+ (isPlayerOffer ? PLAYER_OFFERS_TABLE_NAME
-						: SERVER_OFFERS_TABLE_NAME)
-				+ " WHERE slot="
-				+ offer.getSlot()
-				+ " && "
-				+ (isPlayerOffer ? "ps_id" : "ss_id")
-				+ " IN (SELECT "
-				+ (isPlayerOffer ? "ps_id" : "ss_id")
-				+ " FROM "
-				+ (isPlayerOffer ? PLAYER_SHOPS_TABLE_NAME
-						: SERVER_SHOPS_TABLE_NAME) + " WHERE world='"
-				+ location.getWorld().getName() + "' && x="
-				+ location.getBlockX() + " && y=" + location.getBlockY()
-				+ " && z=" + location.getBlockZ() + ")");
+	public void removeServerShop(final Location location) {
+		new DBTask() {
+
+			@Override
+			protected void run(Statement statement) throws SQLException {
+				ShopsDBUtils.removeServerShop(statement, location);
+			}
+		}.perform(getPlugin(), this);
+	}
+
+	@Override
+	public void addOffer(final Location location, final Offer offer) {
+		new DBTask() {
+
+			@Override
+			protected void run(Statement statement) throws SQLException,
+					DataAccessException {
+				if (offer instanceof PlayerShopOffer) {
+					ShopsDBUtils.addPlayerOffer(statement.getConnection(),
+							offer instanceof PlayerShopBuyOffer ? OfferType.BUY
+									: OfferType.SELL, (PlayerShopOffer) offer,
+							location);
+				} else {
+					ShopsDBUtils.addServerOffer(statement.getConnection(),
+							offer instanceof ServerShopBuyOffer ? OfferType.BUY
+									: OfferType.SELL, (ServerShopOffer) offer,
+							location);
+				}
+			}
+		}.perform(getPlugin(), this);
+	}
+
+	@Override
+	public void addOffers(final Location location, final Set<Offer> offers) {
+		if (offers.size() > 0)
+			new DBTask() {
+
+				@Override
+				protected void run(Statement statement) throws SQLException,
+						DataAccessException {
+					Offer offer = offers.iterator().next();
+					if (offer instanceof PlayerShopOffer) {
+						for (Offer o : offers)
+							ShopsDBUtils
+									.addPlayerOffer(
+											statement.getConnection(),
+											o instanceof PlayerShopBuyOffer ? OfferType.BUY
+													: OfferType.SELL,
+											(PlayerShopOffer) o, location);
+					} else {
+						for (Offer o : offers)
+							ShopsDBUtils
+									.addServerOffer(
+											statement.getConnection(),
+											o instanceof ServerShopBuyOffer ? OfferType.BUY
+													: OfferType.SELL,
+											(ServerShopOffer) o, location);
+					}
+				}
+			}.perform(getPlugin(), this);
+	}
+
+	@Override
+	public void removeOffer(final Location location, final Offer offer) {
+		new DBTask() {
+
+			@Override
+			protected void run(Statement statement) throws SQLException,
+					DataAccessException {
+				ShopsDBUtils.removeOffer(statement, location, offer);
+			}
+		}.perform(getPlugin(), this);
 	}
 
 	@Override
 	public void updateOffers(final Shop shop) {
-		Bukkit.getScheduler().runTaskAsynchronously(getPlugin(),
-				new Runnable() {
+		new DBTask() {
 
-					@Override
-					public void run() {
-						try {
-							Connection connection = mysqlManager
-									.getConnection();
-							try {
-								Statement statement = connection
-										.createStatement();
-								try {
-									Set<Offer> offers = new HashSet<Offer>(shop
-											.getOffers().values());
-									if (offers.size() > 0) {
-										Offer firstOffer = offers.iterator()
-												.next();
-										boolean isPlayerShop = firstOffer instanceof PlayerShopOffer;
-										if (isPlayerShop) {
-											int shopId = getShopId(statement,
-													firstOffer, shop,
-													isPlayerShop);
-											if (shopId > -1) {
-												for (Offer offer : shop
-														.getOffers().values()) {
-													if (offer.isModified()) {
-														PlayerShopOffer playerOffer = (PlayerShopOffer) offer;
-														statement
-																.executeUpdate("UPDATE "
-																		+ (isPlayerShop ? PLAYER_OFFERS_TABLE_NAME
-																				: SERVER_OFFERS_TABLE_NAME)
-																		+ " SET amount="
-																		+ playerOffer
-																				.getAmount()
-																		+ " WHERE slot="
-																		+ playerOffer
-																				.getSlot()
-																		+ " && ps_id="
-																		+ shopId
-																		+ ";");
-													}
-												}
-											}
-										}
-									}
-								} finally {
-									statement.close();
-								}
-							} finally {
-								connection.close();
-							}
-						} catch (SQLException e) {
-							new DataAccessException(e).printStackTrace();
+			@Override
+			protected void run(Statement statement) throws SQLException,
+					DataAccessException {
+				Set<Offer> offers = new HashSet<Offer>(shop.getOffers()
+						.values());
+				if (offers.size() > 0) {
+					Offer firstOffer = offers.iterator().next();
+					boolean isPlayerShop = firstOffer instanceof PlayerShopOffer;
+					if (isPlayerShop) {
+						int shopId = ShopsDBUtils.getShopId(statement,
+								firstOffer, shop);
+						if (shopId > -1) {
+							for (Offer offer : shop.getOffers().values())
+								if (offer.isModified())
+									ShopsDBUtils.updateOffer(statement, offer,
+											shopId);
+						} else {
+							throw new DataAccessException(
+									"Could not find a shop record for a location: "
+											+ shop.getLocation());
 						}
 					}
-				});
+				}
+			}
+		}.perform(getPlugin(), this);
+
+	}
+
+	@Override
+	public void synchUpdateOffers(final Shop shop) throws DataAccessException {
+		try {
+			Connection connection = getConnection();
+			try {
+				Statement statement = connection.createStatement();
+				try {
+					Set<Offer> offers = new HashSet<Offer>(shop.getOffers()
+							.values());
+					if (offers.size() > 0) {
+						Offer firstOffer = offers.iterator().next();
+						boolean isPlayerShop = firstOffer instanceof PlayerShopOffer;
+						if (isPlayerShop) {
+							int shopId = ShopsDBUtils.getShopId(statement,
+									firstOffer, shop);
+							if (shopId > -1) {
+								for (Offer offer : shop.getOffers().values())
+									if (offer.isModified())
+										ShopsDBUtils.updateOffer(statement,
+												offer, shopId);
+							} else {
+								throw new DataAccessException(
+										"Could not find a shop record for a location: "
+												+ shop.getLocation());
+							}
+						}
+					}
+				} finally {
+					statement.close();
+				}
+			} finally {
+				connection.close();
+			}
+		} catch (SQLException e) {
+			throw new DataAccessException("DatabaseError.", e);
+		}
 	}
 
 	@Override
 	public Set<Owner> getOwners() throws DataAccessException {
 		try {
-			Connection connection = mysqlManager.getConnection();
+			Connection connection = getConnection();
 			try {
 				Statement statement = connection.createStatement();
 				try {
@@ -293,32 +287,14 @@ public class MySQLDataManager extends DataManager {
 				connection.close();
 			}
 		} catch (SQLException e) {
-			throw new DataAccessException(e);
-		} catch (IOException e) {
-			throw new DataAccessException(e);
-		} catch (ClassNotFoundException e) {
-			throw new DataAccessException(e);
+			throw new DataAccessException("Database error.", e);
 		}
-	}
-
-	private Set<Owner> getOwners(Statement statement) throws SQLException,
-			ClassNotFoundException, IOException {
-		Map<Integer, Shop> playerShops = readPlayerShops(statement);
-		insertPlayerOffers(statement, playerShops);
-		Map<String, Owner> owners = new HashMap<String, Owner>();
-		for (Shop shop : playerShops.values()) {
-			String ownerName = shop.getOwnerName();
-			if (!owners.containsKey(ownerName))
-				owners.put(ownerName, new Owner(ownerName));
-			owners.get(ownerName).getShops().put(shop.getLocation(), shop);
-		}
-		return new HashSet<Owner>(owners.values());
 	}
 
 	@Override
 	public Set<Shop> getServerShops() throws DataAccessException {
 		try {
-			Connection connection = mysqlManager.getConnection();
+			Connection connection = getConnection();
 			try {
 				Statement statement = connection.createStatement();
 				try {
@@ -330,57 +306,67 @@ public class MySQLDataManager extends DataManager {
 				connection.close();
 			}
 		} catch (SQLException e) {
-			throw new DataAccessException(e);
-		} catch (IOException e) {
-			throw new DataAccessException(e);
-		} catch (ClassNotFoundException e) {
-			throw new DataAccessException(e);
-		}
-	}
-
-	private Set<Shop> getServerShops(Statement statement) throws SQLException,
-			ClassNotFoundException, IOException {
-		Map<Integer, Shop> serverShops = readServerShops(statement);
-		insertServerOffers(statement, serverShops);
-		return new HashSet<Shop>(serverShops.values());
-	}
-
-	@Override
-	public void close() {
-		// nothing to do.
-	}
-
-	@Override
-	public void clearPlayerShops(String ownerName) {
-		mysqlManager.scheduleQuery("DELETE FROM " + PLAYER_OFFERS_TABLE_NAME
-				+ " WHERE ps_id IN(SELECT ps_id FROM "
-				+ PLAYER_SHOPS_TABLE_NAME + " WHERE owner='" + ownerName
-				+ "');", "DELETE FROM " + PLAYER_SHOPS_TABLE_NAME
-				+ " WHERE owner='" + ownerName + "';");
-		synchronized (shopCounter) {
-			shopCounter.remove(ownerName);
+			throw new DataAccessException("Database error.", e);
 		}
 	}
 
 	@Override
-	public void clearPlayerShops() {
-		mysqlManager.scheduleQuery("TRUNCATE TABLE " + PLAYER_SHOPS_TABLE_NAME
-				+ ";", "TRUNCATE TABLE " + PLAYER_OFFERS_TABLE_NAME + ";",
-				"ALTER TABLE " + PLAYER_SHOPS_TABLE_NAME
-						+ " AUTO_INCREMENT = 0", "ALTER TABLE "
-						+ PLAYER_OFFERS_TABLE_NAME + " AUTO_INCREMENT = 0");
-		synchronized (shopCounter) {
-			shopCounter.clear();
+	public void clearPlayerShops(String ownerName) throws DataAccessException {
+		try {
+			Connection connection = getConnection();
+			try {
+				Statement statement = connection.createStatement();
+				try {
+					ShopsDBUtils.clearPlayerShops(statement, ownerName);
+				} finally {
+					statement.close();
+				}
+			} finally {
+				connection.close();
+			}
+		} catch (SQLException e) {
+			throw new DataAccessException("Database error.", e);
+		}
+		shopCounter.remove(ownerName.toLowerCase());
+	}
+
+	@Override
+	public void clearPlayerShops() throws DataAccessException {
+		try {
+			Connection connection = getConnection();
+			try {
+				Statement statement = connection.createStatement();
+				try {
+					ShopsDBUtils.clearPlayerShops(statement);
+					shopCounter.clear();
+				} finally {
+					statement.close();
+				}
+			} finally {
+				connection.close();
+			}
+		} catch (SQLException e) {
+			throw new DataAccessException("Database error.", e);
 		}
 	}
 
 	@Override
-	public void clearServerShops() {
-		mysqlManager.scheduleQuery("TRUNCATE TABLE " + SERVER_SHOPS_TABLE_NAME
-				+ ";", "TRUNCATE TABLE " + SERVER_OFFERS_TABLE_NAME + ";",
-				"ALTER TABLE " + SERVER_SHOPS_TABLE_NAME
-						+ " AUTO_INCREMENT = 0", "ALTER TABLE "
-						+ SERVER_OFFERS_TABLE_NAME + " AUTO_INCREMENT = 0");
+	public void clearServerShops() throws DataAccessException {
+		try {
+			Connection connection = getConnection();
+			try {
+				Statement statement = connection.createStatement();
+				try {
+					ShopsDBUtils.clearServerShops(statement);
+				} finally {
+					statement.close();
+				}
+			} finally {
+				connection.close();
+			}
+		} catch (SQLException e) {
+			throw new DataAccessException("Database error.", e);
+		}
 	}
 
 	@SuppressWarnings("unchecked")
@@ -394,404 +380,150 @@ public class MySQLDataManager extends DataManager {
 			try {
 				owners.addAll((Set<Owner>) in.readObject());
 				serverShops.addAll((Set<Shop>) in.readObject());
+				shopCounter.clear();
+				Connection connection = getConnection();
+				try {
+					Statement statement = connection.createStatement();
+					try {
+						ShopsDBUtils.clearPlayerShops(statement);
+						ShopsDBUtils.clearServerShops(statement);
+						int idCounter = 1;
+						for (Owner owner : owners) {
+							idCounter = importShops(
+									connection,
+									statement,
+									new HashSet<Shop>(owner.getShops().values()),
+									owner.getName(), idCounter);
+							shopCounter.put(owner.getName().toLowerCase(),
+									owner.getShops().size());
+						}
+						importShops(connection, statement, serverShops, null, 1);
+						return new LoadResult(owners, serverShops);
+					} finally {
+						statement.close();
+					}
+				} finally {
+					connection.close();
+				}
 			} finally {
 				in.close();
 			}
-			synchronized (shopCounter) {
-				shopCounter.clear();
-			}
-			Connection connection = mysqlManager.getConnection();
+		} catch (IOException e) {
+			throw new DataAccessException("Couldn't read file.", e);
+		} catch (ClassNotFoundException e) {
+			throw new DataAccessException("Couldn't read file.", e);
+		} catch (SQLException e) {
+			throw new DataAccessException("Database error.", e);
+		}
+	}
+
+	@Override
+	public Owner getOwner(String ownerName) throws DataAccessException {
+		try {
+			Connection connection = getConnection();
 			try {
 				Statement statement = connection.createStatement();
 				try {
-					statement.executeUpdate("TRUNCATE TABLE "
-							+ PLAYER_SHOPS_TABLE_NAME + ";");
-					statement.executeUpdate("TRUNCATE TABLE "
-							+ PLAYER_OFFERS_TABLE_NAME + ";");
-					statement.executeUpdate("TRUNCATE TABLE "
-							+ SERVER_SHOPS_TABLE_NAME + ";");
-					statement.executeUpdate("TRUNCATE TABLE "
-							+ SERVER_OFFERS_TABLE_NAME + ";");
-					statement.executeUpdate("ALTER TABLE "
-							+ PLAYER_SHOPS_TABLE_NAME + " AUTO_INCREMENT=0");
-					statement.executeUpdate("ALTER TABLE "
-							+ PLAYER_OFFERS_TABLE_NAME + " AUTO_INCREMENT=0");
-					statement.executeUpdate("ALTER TABLE "
-							+ SERVER_SHOPS_TABLE_NAME + " AUTO_INCREMENT=0");
-					statement.executeUpdate("ALTER TABLE "
-							+ SERVER_OFFERS_TABLE_NAME + " AUTO_INCREMENT=0");
-					int idCounter = 1;
-					for (Owner owner : owners) {
-						idCounter = importShops(connection, statement,
-								new HashSet<Shop>(owner.getShops().values()),
-								owner.getName(), idCounter);
-						shopCounter.put(owner.getName(), owner.getShops()
-								.size());
+					Owner owner = new Owner(ownerName);
+					Map<Location, Shop> ownerShops = owner.getShops();
+					Map<Integer, Shop> shops = ShopsDBUtils.getPlayerShops(
+							statement, ownerName);
+					for (Map.Entry<Integer, Shop> entry : shops.entrySet()) {
+						ShopsDBUtils.insertPlayerOffers(statement,
+								entry.getValue(), entry.getKey());
+						ownerShops.put(entry.getValue().getLocation(),
+								entry.getValue());
 					}
-					importShops(connection, statement, serverShops, null, 1);
+					return owner;
 				} finally {
 					statement.close();
 				}
 			} finally {
 				connection.close();
 			}
-			return new LoadResult(owners, serverShops);
 		} catch (SQLException e) {
-			throw new DataAccessException(e);
-		} catch (IOException e) {
-			throw new DataAccessException(e);
-		} catch (ClassNotFoundException e) {
 			throw new DataAccessException(e);
 		}
 	}
 
 	@Override
-	public Owner getOwner(String ownerName) throws DataAccessException {
-		Owner owner = new Owner(ownerName);
-		try {
-			Connection connection = mysqlManager.getConnection();
-			try {
-				Statement shopStatement = connection.createStatement();
-				try {
-					Statement offerStatement = connection.createStatement();
-					try {
-						Map<Location, Shop> shops = owner.getShops();
-						ResultSet shopsResult = shopStatement
-								.executeQuery("SELECT * FROM "
-										+ PLAYER_SHOPS_TABLE_NAME
-										+ " WHERE owner='" + ownerName + "';");
-						try {
-							while (shopsResult.next()) {
-								Shop shop = new Shop(new Location(
-										Bukkit.getWorld(shopsResult
-												.getString("world")),
-										shopsResult.getInt("x"),
-										shopsResult.getInt("y"),
-										shopsResult.getInt("z")));
-								ResultSet offersResult = offerStatement
-										.executeQuery("SELECT * FROM "
-												+ PLAYER_OFFERS_TABLE_NAME
-												+ " WHERE ps_id="
-												+ shopsResult.getInt("ps_id"));
-								try {
-									while (offersResult.next()) {
-										OfferType type = OfferType
-												.valueOf(offersResult
-														.getString("type")
-														.toUpperCase());
-										int slot = offersResult.getInt("slot");
-										ItemStack item = SerializationUtils
-												.toItemStack(offersResult
-														.getBytes("item"));
-										int amount = offersResult
-												.getInt("amount");
-										int maxAmount = offersResult
-												.getInt("max_amount");
-										double price = (double) offersResult
-												.getInt("price") / 100;
-										shop.addOffer(
-												slot,
-												type.equals(OfferType.BUY) ? new PlayerShopBuyOffer(
-														item, price, slot,
-														amount, maxAmount,
-														ownerName)
-														: new PlayerShopSellOffer(
-																item, price,
-																slot, amount,
-																maxAmount,
-																ownerName));
-									}
-								} finally {
-									offersResult.close();
-								}
-								shops.put(shop.getLocation(), shop);
-							}
-						} finally {
-							shopsResult.close();
-						}
-					} finally {
-						offerStatement.close();
-					}
-				} finally {
-					shopStatement.close();
-				}
-			} finally {
-				connection.close();
-			}
-		} catch (SQLException e) {
-			throw new DataAccessException(e);
-		} catch (IOException e) {
-			throw new DataAccessException(e);
-		} catch (ClassNotFoundException e) {
-			throw new DataAccessException(e);
-		}
-		return owner;
+	public void close() {
+		// nothing to do.
 	}
 
-	private void createTables(Statement statement) throws SQLException {
-		statement
-				.executeUpdate("CREATE TABLE IF NOT EXISTS "
-						+ PLAYER_SHOPS_TABLE_NAME
-						+ " (ps_id INT(10) NOT NULL AUTO_INCREMENT PRIMARY KEY, owner CHAR(17) NOT NULL, world CHAR(30), x INT(6), y INT(6), z INT(6));");
-		statement
-				.executeUpdate("CREATE TABLE IF NOT EXISTS "
-						+ SERVER_SHOPS_TABLE_NAME
-						+ " (ss_id INT(10) NOT NULL AUTO_INCREMENT PRIMARY KEY, world CHAR(30), x INT(6), y INT(6), z INT(6));");
-		statement
-				.executeUpdate("CREATE TABLE IF NOT EXISTS "
-						+ PLAYER_OFFERS_TABLE_NAME
-						+ " (ps_offer_id INT(10) NOT NULL AUTO_INCREMENT PRIMARY KEY, ps_id INT(10) NOT NULL, type ENUM('BUY', 'SELL'), item BLOB NOT NULL, slot INT(2) NOT NULL, amount INT(3) NOT NULL, max_amount INT(3) NOT NULL, price INT(8) NOT NULL);");
-		statement
-				.executeUpdate("CREATE TABLE IF NOT EXISTS "
-						+ SERVER_OFFERS_TABLE_NAME
-						+ " (ss_offer_id INT(10) NOT NULL AUTO_INCREMENT PRIMARY KEY, ss_id INT(10) NOT NULL, type ENUM('BUY', 'SELL'), item BLOB NOT NULL, slot INT(2) NOT NULL, price INT(8) NOT NULL);");
-	}
-
-	private Map<Integer, Shop> readPlayerShops(Statement statement)
-			throws SQLException {
-		ResultSet psResult = statement.executeQuery("SELECT * FROM "
-				+ PLAYER_SHOPS_TABLE_NAME);
-		Map<Integer, Shop> shops = new HashMap<Integer, Shop>();
-		try {
-			while (psResult.next()) {
-				int id = psResult.getInt("ps_id");
-				String ownerName = psResult.getString("owner");
-				Location location = new Location(Bukkit.getWorld(psResult
-						.getString("world")), psResult.getInt("x"),
-						psResult.getInt("y"), psResult.getInt("z"));
-				shops.put(id, new Shop(location, ownerName));
-			}
-		} finally {
-			psResult.close();
-		}
-		return shops;
-	}
-
-	private Map<Integer, Shop> readServerShops(Statement statement)
-			throws SQLException {
-		ResultSet psResult = statement.executeQuery("SELECT * FROM "
-				+ SERVER_SHOPS_TABLE_NAME);
-		Map<Integer, Shop> shops = new HashMap<Integer, Shop>();
-		try {
-			while (psResult.next()) {
-				int id = psResult.getInt("ss_id");
-				Location location = new Location(Bukkit.getWorld(psResult
-						.getString("world")), psResult.getInt("x"),
-						psResult.getInt("y"), psResult.getInt("z"));
-				shops.put(id, new Shop(location));
-			}
-		} finally {
-			psResult.close();
-		}
-		return shops;
-	}
-
-	private void insertPlayerOffers(Statement statement,
-			Map<Integer, Shop> shops) throws SQLException,
-			ClassNotFoundException, IOException {
-		ResultSet psoResult = statement.executeQuery("SELECT * FROM "
-				+ PLAYER_OFFERS_TABLE_NAME);
-		try {
-			while (psoResult.next()) {
-				Shop shop = shops.get(psoResult.getInt("ps_id"));
-				if (shop != null) {
-					OfferType type = OfferType.valueOf(psoResult.getString(
-							"type").toUpperCase());
-					ItemStack item = SerializationUtils.toItemStack(psoResult
-							.getBytes("item"));
-					int slot = psoResult.getInt("slot");
-					int amount = psoResult.getInt("amount");
-					int maxAmount = psoResult.getInt("max_amount");
-					double price = (double) psoResult.getInt("price") / 100;
-					shop.addOffer(
-							slot,
-							type.equals(OfferType.BUY) ? new PlayerShopBuyOffer(
-									item, price, slot, amount, maxAmount, shop
-											.getOwnerName())
-									: new PlayerShopSellOffer(item, price,
-											slot, amount, maxAmount, shop
-													.getOwnerName()));
-				}
-			}
-		} finally {
-			psoResult.close();
-		}
-	}
-
-	private void insertServerOffers(Statement statement,
-			Map<Integer, Shop> shops) throws SQLException,
-			ClassNotFoundException, IOException {
-		ResultSet ssoResult = statement.executeQuery("SELECT * FROM "
-				+ SERVER_OFFERS_TABLE_NAME);
-		try {
-			while (ssoResult.next()) {
-				Shop shop = shops.get(ssoResult.getInt("ss_id"));
-				if (shop != null) {
-					OfferType type = OfferType.valueOf(ssoResult.getString(
-							"type").toUpperCase());
-					ItemStack item = SerializationUtils.toItemStack(ssoResult
-							.getBytes("item"));
-					int slot = ssoResult.getInt("slot");
-					double price = (double) ssoResult.getInt("price") / 100;
-					shop.addOffer(
-							slot,
-							type.equals(OfferType.BUY) ? new ServerShopBuyOffer(
-									item, price, slot)
-									: new ServerShopSellOffer(item, price, slot));
-				}
-			}
-		} finally {
-			ssoResult.close();
-		}
-	}
-
-	private void addPlayerOffer(final OfferType type,
-			final PlayerShopOffer offer, final Location location) {
-		Bukkit.getScheduler().runTaskAsynchronously(getPlugin(),
-				new Runnable() {
-
-					@Override
-					public void run() {
-						try {
-							Connection connection = mysqlManager
-									.getConnection();
-							try {
-								String query = "INSERT INTO "
-										+ PLAYER_OFFERS_TABLE_NAME
-										+ " (ps_id, type, item, slot, amount, max_amount, price) SELECT ps_id, '"
-										+ type + "', ?, " + offer.getSlot()
-										+ ", " + offer.getAmount() + ", "
-										+ offer.getMaxAmount() + ", "
-										+ ((int) offer.getPrice() * 100)
-										+ " FROM " + PLAYER_SHOPS_TABLE_NAME
-										+ " WHERE world='"
-										+ location.getWorld().getName()
-										+ "' && x=" + location.getBlockX()
-										+ " && y=" + location.getBlockY()
-										+ " && z=" + location.getBlockZ() + ";";
-								PreparedStatement statement = connection
-										.prepareStatement(query);
-								statement.setObject(1, SerializationUtils
-										.toByteArray(offer.getItem()));
-								statement.executeUpdate();
-							} finally {
-								connection.close();
-							}
-						} catch (SQLException e) {
-							new DataAccessException(e).printStackTrace();
-						} catch (IOException e) {
-							new DataAccessException(e).printStackTrace();
-						}
-					}
-				});
-	}
-
-	private void addServerOffer(final OfferType type,
-			final ServerShopOffer offer, final Location location) {
-		Bukkit.getScheduler().runTaskAsynchronously(getPlugin(),
-				new Runnable() {
-
-					@Override
-					public void run() {
-						try {
-							Connection connection = mysqlManager
-									.getConnection();
-							try {
-								String query = "INSERT INTO "
-										+ SERVER_OFFERS_TABLE_NAME
-										+ " (ss_id, type, item, slot, price) SELECT ss_id, '"
-										+ type + "', ?, " + offer.getSlot()
-										+ ", " + ((int) offer.getPrice() * 100)
-										+ " FROM " + SERVER_SHOPS_TABLE_NAME
-										+ " WHERE world='"
-										+ location.getWorld().getName()
-										+ "' && x=" + location.getBlockX()
-										+ " && y=" + location.getBlockY()
-										+ " && z=" + location.getBlockZ() + ";";
-								PreparedStatement statement = connection
-										.prepareStatement(query);
-								statement.setObject(1, SerializationUtils
-										.toByteArray(offer.getItem()));
-								statement.executeUpdate();
-							} finally {
-								connection.close();
-							}
-						} catch (SQLException e) {
-							new DataAccessException(e).printStackTrace();
-						} catch (IOException e) {
-							new DataAccessException(e).printStackTrace();
-						}
-					}
-				});
-	}
-
-	private int getShopId(Statement statement, Offer offer, Shop shop,
-			boolean isPlayerShop) throws SQLException {
-		Location location = shop.getLocation();
-		ResultSet result = statement.executeQuery("SELECT "
-				+ (isPlayerShop ? "ps_id" : "ss_id")
-				+ " FROM "
-				+ (isPlayerShop ? PLAYER_SHOPS_TABLE_NAME
-						: SERVER_SHOPS_TABLE_NAME) + " WHERE world='"
-				+ location.getWorld().getName() + "' && x="
-				+ location.getBlockX() + " && y=" + location.getBlockY()
-				+ " && z=" + location.getBlockZ() + ";");
-		try {
-			if (result.next())
-				return result.getInt(isPlayerShop ? "ps_id" : "ss_id");
-			else
-				return -1;
-		} finally {
-			result.close();
-		}
+	public Connection getConnection() throws SQLException {
+		return DriverManager.getConnection(url);
 	}
 
 	private int importShops(Connection connection, Statement statement,
 			Set<Shop> shops, String ownerName, int idCounter)
-			throws SQLException, IOException {
+			throws DataAccessException, SQLException {
 		for (Shop shop : shops) {
 			Location location = shop.getLocation();
-			String insertQuery = "INSERT INTO "
-					+ (ownerName != null ? PLAYER_SHOPS_TABLE_NAME
-							: SERVER_SHOPS_TABLE_NAME) + " VALUES(" + idCounter
-					+ ", " + (ownerName != null ? "'" + ownerName + "', " : "")
-					+ "'" + location.getWorld().getName() + "', "
-					+ location.getBlockX() + ", " + location.getBlockY() + ", "
-					+ location.getBlockZ() + ");";
-			statement.executeUpdate(insertQuery);
+			if (ownerName != null)
+				ShopsDBUtils.addPlayerShop(statement, location, ownerName,
+						idCounter);
+			else
+				ShopsDBUtils.addServerShop(statement, location, idCounter);
 			for (Offer offer : shop.getOffers().values()) {
-				String query;
-				if (ownerName != null) {
+				if (offer instanceof PlayerShopOffer) {
 					OfferType type = offer instanceof PlayerShopBuyOffer ? OfferType.BUY
 							: OfferType.SELL;
-					PlayerShopOffer playerOffer = (PlayerShopOffer) offer;
-					query = "INSERT INTO " + PLAYER_OFFERS_TABLE_NAME
-							+ " VALUES(NULL, " + idCounter + ", '" + type
-							+ "', ?, " + playerOffer.getSlot() + ", "
-							+ playerOffer.getAmount() + ", "
-							+ playerOffer.getMaxAmount() + ", "
-							+ playerOffer.getPrice() * 100 + ");";
+					ShopsDBUtils.addPlayerOffer(connection, type,
+							(PlayerShopOffer) offer, location);
 				} else {
 					OfferType type = offer instanceof ServerShopBuyOffer ? OfferType.BUY
 							: OfferType.SELL;
-					ServerShopOffer serverOffer = (ServerShopOffer) offer;
-					query = "INSERT INTO " + SERVER_OFFERS_TABLE_NAME
-							+ " VALUES(NULL, " + idCounter + ", '" + type
-							+ "', ?, " + serverOffer.getSlot() + ", "
-							+ serverOffer.getPrice() * 100 + ");";
-				}
-				PreparedStatement preparedStatement = connection
-						.prepareStatement(query);
-				try {
-					preparedStatement.setObject(1,
-							SerializationUtils.toByteArray(offer.getItem()));
-					preparedStatement.execute();
-				} finally {
-					preparedStatement.close();
+					ShopsDBUtils.addServerOffer(connection, type,
+							(ServerShopOffer) offer, location);
 				}
 			}
 			idCounter++;
 		}
 		return idCounter;
+	}
+
+	private void incrementCounter(String ownerName) {
+		Integer value = shopCounter.putIfAbsent(ownerName.toLowerCase(), 1);
+		if (value != null)
+			shopCounter.put(ownerName.toLowerCase(), value + 1);
+	}
+
+	private void decrementCounter(String ownerName) {
+		Integer value = shopCounter.remove(ownerName.toLowerCase());
+		if (value != null && value > 1)
+			shopCounter.put(ownerName.toLowerCase(), value - 1);
+	}
+
+	private Set<Owner> getOwners(Statement statement) throws SQLException {
+		Map<Integer, Shop> shops = ShopsDBUtils.getPlayerShops(statement);
+		ShopsDBUtils.insertPlayerOffers(statement, shops);
+		Map<String, Owner> owners = new HashMap<String, Owner>();
+		for (Shop shop : shops.values()) {
+			String ownerName = shop.getOwnerName();
+			if (!owners.containsKey(ownerName))
+				owners.put(ownerName, new Owner(ownerName));
+			owners.get(ownerName).getShops().put(shop.getLocation(), shop);
+		}
+		return new HashSet<Owner>(owners.values());
+	}
+
+	private Set<Shop> getServerShops(Statement statement) throws SQLException {
+		Map<Integer, Shop> serverShops = ShopsDBUtils.getServerShops(statement);
+		ShopsDBUtils.insertServerOffers(statement, serverShops);
+		return new HashSet<Shop>(serverShops.values());
+	}
+
+	private String getUrl() {
+		String host = getPlugin().getConfiguration().getString(
+				ASConfigurationPath.DB_HOST);
+		String name = getPlugin().getConfiguration().getString(
+				ASConfigurationPath.DB_NAME);
+		String user = getPlugin().getConfiguration().getString(
+				ASConfigurationPath.DB_USER);
+		String password = getPlugin().getConfiguration().getString(
+				ASConfigurationPath.DB_PASSWORD);
+		return "jdbc:mysql://" + host + "/" + name + "?" + "user=" + user
+				+ "&password=" + password;
 	}
 }

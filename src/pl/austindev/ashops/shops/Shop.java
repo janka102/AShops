@@ -70,8 +70,9 @@ public class Shop implements Serializable {
 
 	public boolean isModified() {
 		for (Map.Entry<Integer, Offer> entry : offers.entrySet())
-			if (entry.getValue().isModified())
+			if (entry.getValue().isModified()) {
 				return true;
+			}
 		return false;
 	}
 

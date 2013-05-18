@@ -19,6 +19,9 @@ package pl.austindev.mc;
 
 import org.bukkit.entity.Player;
 
+import pl.austindev.ashops.ShopUtils;
+import pl.austindev.ashops.keys.ASConfigurationPath;
+
 public interface EconomyProvider {
 	public boolean has(Player player, double amount);
 
@@ -33,5 +36,7 @@ public interface EconomyProvider {
 	public boolean hasAccount(String playerName);
 
 	public boolean createPlayerAccount(String playerName);
+	
+	public void loadConfigProperties(APlugin plugin);
 
 }

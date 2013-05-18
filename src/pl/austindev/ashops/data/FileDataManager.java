@@ -28,6 +28,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -42,7 +44,7 @@ import pl.austindev.ashops.shops.Shop;
 public class FileDataManager extends DataManager {
 	private static final String SERVER_SHOPS_FILE_NAME = "server-shops"
 			+ ".dat";
-	private final Map<String, Integer> shopCounter = new HashMap<String, Integer>();
+	private final ConcurrentMap<String, Integer> shopCounter = new ConcurrentHashMap<String, Integer>();
 
 	public FileDataManager(AShops plugin) {
 		super(plugin);
@@ -84,17 +86,13 @@ public class FileDataManager extends DataManager {
 					Owner owner = readOwner(ownerName);
 					owner.addShop(location);
 					saveOwner(owner);
+					incrementCounter(ownerName);
 				} catch (DataAccessException e) {
 					e.printStackTrace();
 				}
 
 			}
 		});
-		synchronized (shopCounter) {
-			Integer counter = shopCounter.get(ownerName);
-			shopCounter.put(ownerName,
-					counter != null ? shopCounter.get(ownerName) + 1 : 0);
-		}
 	}
 
 	@Override
@@ -125,21 +123,13 @@ public class FileDataManager extends DataManager {
 					Owner owner = readOwner(ownerName);
 					owner.removeShop(location);
 					saveOwner(owner);
+					decrementCounter(ownerName);
 				} catch (DataAccessException e) {
 					e.printStackTrace();
 				}
 
 			}
 		});
-		synchronized (shopCounter) {
-			Integer counter = shopCounter.get(ownerName);
-			if (counter != null) {
-				if (counter > 1)
-					shopCounter.put(ownerName, counter - 1);
-				else
-					shopCounter.remove(ownerName);
-			}
-		}
 	}
 
 	@Override
@@ -189,6 +179,41 @@ public class FileDataManager extends DataManager {
 				}
 			}
 		});
+	}
+
+	public void addOffers(final Location location, final Set<Offer> offers) {
+		if (offers.size() > 0)
+			schedule(new Runnable() {
+
+				@Override
+				public void run() {
+					try {
+						Offer offer = offers.iterator().next();
+						if (offer instanceof PlayerShopOffer) {
+							String ownerName = ((PlayerShopOffer) offer)
+									.getOwnerName();
+							Owner owner = readOwner(ownerName);
+							Map<Location, Shop> shops = owner.getShops();
+							if (!shops.containsKey(location))
+								shops.put(location, new Shop(location));
+							Shop shop = shops.get(location);
+							for (Offer o : offers)
+								shop.addOffer(o.getSlot(), o);
+							saveOwner(owner);
+						} else if (offer instanceof ServerShopOffer) {
+							Map<Location, Shop> serverShops = readServerShops();
+							if (!serverShops.containsKey(location))
+								serverShops.put(location, new Shop(location));
+							Shop shop = serverShops.get(location);
+							for (Offer o : offers)
+								shop.addOffer(o.getSlot(), o);
+							saveSeverShops(serverShops);
+						}
+					} catch (DataAccessException e) {
+						e.printStackTrace();
+					}
+				}
+			});
 	}
 
 	@Override
@@ -251,6 +276,26 @@ public class FileDataManager extends DataManager {
 	}
 
 	@Override
+	public void synchUpdateOffers(final Shop shop) {
+		Map<Integer, Offer> offers = shop.getOffers();
+		Offer testOffer = offers.values().iterator().next();
+		try {
+			if (testOffer instanceof PlayerShopOffer) {
+				String ownerName = ((PlayerShopOffer) testOffer).getOwnerName();
+				Owner owner = readOwner(ownerName);
+				owner.getShops().put(shop.getLocation(), shop);
+				saveOwner(owner);
+			} else {
+				Map<Location, Shop> serverShops = readServerShops();
+				serverShops.put(shop.getLocation(), shop);
+				saveSeverShops(serverShops);
+			}
+		} catch (DataAccessException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Override
 	public Set<Owner> getOwners() throws DataAccessException {
 		Set<Owner> owners = new HashSet<Owner>();
 		for (String ownerName : getOwnerFiles()) {
@@ -275,18 +320,14 @@ public class FileDataManager extends DataManager {
 		File file = getFile(ownerName);
 		if (file.exists())
 			file.delete();
-		synchronized (shopCounter) {
-			shopCounter.remove(ownerName);
-		}
+		shopCounter.remove(ownerName);
 	}
 
 	@Override
 	public void clearPlayerShops() {
 		for (File file : getShopsFolder().listFiles(OwnersFilesFilter.INSTANCE))
 			file.delete();
-		synchronized (shopCounter) {
-			shopCounter.clear();
-		}
+		shopCounter.clear();
 	}
 
 	@Override
@@ -445,4 +486,17 @@ public class FileDataManager extends DataManager {
 		}
 
 	}
+
+	private void incrementCounter(String ownerName) {
+		Integer value = shopCounter.putIfAbsent(ownerName.toLowerCase(), 1);
+		if (value != null)
+			shopCounter.put(ownerName.toLowerCase(), value + 1);
+	}
+
+	private void decrementCounter(String ownerName) {
+		Integer value = shopCounter.remove(ownerName.toLowerCase());
+		if (value != null && value > 1)
+			shopCounter.put(ownerName.toLowerCase(), value - 1);
+	}
+
 }

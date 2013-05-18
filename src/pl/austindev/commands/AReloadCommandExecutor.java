@@ -37,6 +37,7 @@ public class AReloadCommandExecutor extends ASCommandExecutor {
 			List<String> arguments) {
 		getPlugin().reloadConfig();
 		getShopsManager().loadConfigProperties();
+		getEconomy().loadConfigProperties(getPlugin());
 		tell(sender, ASMessage.RELOADED);
 	}
 }

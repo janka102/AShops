@@ -17,15 +17,15 @@
  */
 package pl.austindev.ashops.shops;
 
-import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import pl.austindev.ashops.InventoryUtils;
+import pl.austindev.ashops.ShopUtils;
 import pl.austindev.ashops.keys.ASMessage;
 
 public abstract class PlayerShopOffer extends Offer {
@@ -43,26 +43,42 @@ public abstract class PlayerShopOffer extends Offer {
 	}
 
 	public static Offer getOffer(ItemStack offerTag, int slot) {
-		List<String> lore = offerTag.getItemMeta().getLore();
-		String ownerName = lore.get(lore.size() - 1).substring(2);
-		String[] amounts = lore.get(lore.size() - 2).split("/");
-		int amount = Integer.parseInt(amounts[0].substring(2));
-		int maxAmount = Integer.parseInt(amounts[1]);
-		double price = Double.parseDouble(lore.get(lore.size() - 3)
-				.substring(2));
-		ItemStack rawItem = InventoryUtils.getReducedItem(offerTag, 3);
-		return price > 0 ? new PlayerShopBuyOffer(rawItem, price, slot, amount,
-				maxAmount, ownerName) : new PlayerShopSellOffer(rawItem,
-				Math.abs(price), slot, amount, maxAmount, ownerName);
+		try {
+			if (offerTag.hasItemMeta()) {
+				List<String> lore = offerTag.getItemMeta().getLore();
+				if (lore.size() > 2) {
+					String ownerName = lore.get(lore.size() - 1).substring(2);
+					String[] amounts = lore.get(lore.size() - 2).split("/");
+					int amount = Integer.parseInt(amounts[0].substring(2));
+					int maxAmount = Integer.parseInt(amounts[1]);
+					String priceLine = lore.get(lore.size() - 3);
+					double price = ShopUtils.extractPrice(priceLine);
+					ItemStack rawItem = InventoryUtils.getReducedItem(offerTag,
+							3);
+					return price > 0 ? new PlayerShopBuyOffer(rawItem, price,
+							slot, amount, maxAmount, ownerName)
+							: new PlayerShopSellOffer(rawItem, Math.abs(price),
+									slot, amount, maxAmount, ownerName);
+				}
+			}
+		} catch (NumberFormatException e) {
+			return null;
+		}
+		return null;
 	}
 
-	public synchronized Set<ItemStack> takeContents() {
-		Set<ItemStack> stacks = new HashSet<ItemStack>();
+	public synchronized List<ItemStack> takeContents() {
+		List<ItemStack> stacks = new LinkedList<ItemStack>();
 		int maxStackSize = getItem().getMaxStackSize();
-		for (int currentAmount = getAmount() % maxStackSize; getAmount() > 0; setAmount(getAmount()
-				- currentAmount)) {
+		for (int i = getAmount() / maxStackSize; i > 0; i--) {
 			ItemStack item = new ItemStack(getItem());
-			item.setAmount(currentAmount);
+			item.setAmount(maxStackSize);
+			stacks.add(item);
+		}
+		int leftItems = getAmount() % maxStackSize;
+		if (leftItems > 0) {
+			ItemStack item = new ItemStack(getItem());
+			item.setAmount(leftItems);
 			stacks.add(item);
 		}
 		return stacks;

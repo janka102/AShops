@@ -22,6 +22,7 @@ import java.util.List;
 import org.bukkit.inventory.ItemStack;
 
 import pl.austindev.ashops.InventoryUtils;
+import pl.austindev.ashops.ShopUtils;
 
 public abstract class ServerShopOffer extends Offer {
 	private static final long serialVersionUID = 1L;
@@ -31,11 +32,22 @@ public abstract class ServerShopOffer extends Offer {
 	}
 
 	public static Offer getOffer(ItemStack offerTag, int slot) {
-		List<String> lore = offerTag.getItemMeta().getLore();
-		double price = Double.parseDouble(lore.get(lore.size() - 1)
-				.substring(2));
-		ItemStack rawItem = InventoryUtils.getReducedItem(offerTag, 1);
-		return price > 0 ? new ServerShopBuyOffer(rawItem, price, slot)
-				: new ServerShopSellOffer(rawItem, Math.abs(price), slot);
+		try {
+			if (offerTag.hasItemMeta()) {
+				List<String> lore = offerTag.getItemMeta().getLore();
+				if (lore.size() > 0) {
+					String priceLine = lore.get(lore.size() - 1);
+					double price = ShopUtils.extractPrice(priceLine);
+					ItemStack rawItem = InventoryUtils.getReducedItem(offerTag,
+							1);
+					return price > 0 ? new ServerShopBuyOffer(rawItem, price,
+							slot) : new ServerShopSellOffer(rawItem,
+							Math.abs(price), slot);
+				}
+			}
+		} catch (NumberFormatException e) {
+			return null;
+		}
+		return null;
 	}
 }

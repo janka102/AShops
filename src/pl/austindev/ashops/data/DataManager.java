@@ -80,11 +80,12 @@ public abstract class DataManager {
 
 	public abstract void close();
 
-	public abstract void clearPlayerShops(String ownerName);
+	public abstract void clearPlayerShops(String ownerName)
+			throws DataAccessException;
 
-	public abstract void clearPlayerShops();
+	public abstract void clearPlayerShops() throws DataAccessException;
 
-	public abstract void clearServerShops();
+	public abstract void clearServerShops() throws DataAccessException;
 
 	public abstract LoadResult loadFromFile() throws DataAccessException;
 
@@ -93,4 +94,9 @@ public abstract class DataManager {
 	}
 
 	public abstract Owner getOwner(String ownerName) throws DataAccessException;
+
+	public abstract void addOffers(Location location, Set<Offer> offers);
+
+	public abstract void synchUpdateOffers(Shop shop)
+			throws DataAccessException;
 }

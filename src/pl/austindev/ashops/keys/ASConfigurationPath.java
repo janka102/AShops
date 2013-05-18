@@ -25,8 +25,9 @@ public enum ASConfigurationPath implements ConfigurationPath {
 			"limit.%s"), SHOP_PRICE("price.%s"), MINIMAL_PRICE("minimal.%s"), EXCLUDED_ITEMS_LIST(
 			"exclude"), DISCOUNT("discount.%s"), SERVER_ACCOUNT_NAME(
 			"server_account_name"), TAXES_ACCOUNT_NAME("taxes_account_name"), TAXES(
-			"taxes.%s"), REGIONS("regions"),USE_ID("use_id_for_currency"), CURRENCY_ID(
-			"currency_id");
+			"taxes.%s"), REGIONS("regions"), PROTECTION("protection"), SELL_DESCRIPTION(
+			"sell_description"), BUY_DESCRIPTION("buy_description"), USE_ID("use_item_for_currency"),
+			CURRENCY_ID("currency_id");
 	private final String path;
 
 	private ASConfigurationPath(String path) {

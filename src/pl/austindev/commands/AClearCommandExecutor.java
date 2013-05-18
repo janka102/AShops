@@ -50,8 +50,10 @@ public class AClearCommandExecutor extends ASCommandExecutor {
 				getShopsManager().clearPlayerShops();
 				tell(sender, ASMessage.SHOPS_CLEARED);
 			} else if (PlayerUtil.isValidPlayerName(arg)) {
-				getShopsManager().clearPlayerShops(arg);
-				tell(sender, ASMessage.SHOPS_CLEARED);
+				if (getShopsManager().clearPlayerShops(arg))
+					tell(sender, ASMessage.SHOPS_CLEARED);
+				else
+					tell(sender, ASMessage.NOT_OWNER_NAME);
 			} else {
 				tell(sender, ASMessage.INVALID_PLAYER);
 			}

@@ -20,11 +20,22 @@ package pl.austindev.ashops.data;
 public class DataAccessException extends Exception {
 	private static final long serialVersionUID = 1L;
 
-	public DataAccessException(Throwable t) {
-		super(t);
+	public DataAccessException(String string) {
+		super(string);
+	}
+
+	public DataAccessException(Throwable e) {
+		super(e);
 	}
 
 	public DataAccessException(String message, Throwable t) {
 		super(message, t);
+	}
+
+	public String asString() {
+		StringBuilder stringBuilder = new StringBuilder(toString() + "\n");
+		for (StackTraceElement element : getStackTrace())
+			stringBuilder.append(element.toString() + "\n");
+		return stringBuilder.toString();
 	}
 }

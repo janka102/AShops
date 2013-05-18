@@ -20,7 +20,6 @@ package pl.austindev.mc;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -46,7 +45,6 @@ public abstract class ACommandExecutor<T extends APlugin> implements
 			Class<U> commands) {
 		for (U command : commands.getEnumConstants())
 			register(plugin, command);
-		TimeUnit.MILLISECONDS.toMinutes(201231);
 	}
 
 	@Override

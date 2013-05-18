@@ -49,7 +49,7 @@ public class ASellCommandExecutor extends ASCommandExecutor {
 				item = InventoryUtils.getItem(player.getItemInHand());
 			}
 			if (item != null && item.getTypeId() > 0) {
-				if (getShopsManager().canSell(player, item)) {
+				if (getShopsManager().canTrade(player, item)) {
 					double minimalPrice = getShopsManager().getMinimalPrice(
 							player, item);
 					if (price >= minimalPrice) {

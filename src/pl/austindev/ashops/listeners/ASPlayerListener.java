@@ -17,6 +17,7 @@
  */
 package pl.austindev.ashops.listeners;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import org.bukkit.GameMode;
@@ -73,6 +74,7 @@ public class ASPlayerListener extends ASListener {
 			onLeftClickBlock(event, player, block);
 	}
 
+	@SuppressWarnings("deprecation")
 	private void onRightClickBlock(PlayerInteractEvent event, Player player,
 			Block block) {
 		TemporaryValue temporaryValue = getPlugin().getTemporaryValues().take(
@@ -80,7 +82,7 @@ public class ASPlayerListener extends ASListener {
 		if (temporaryValue != null) {
 			if (!event.isCancelled()) {
 				if (block.getType().equals(Material.CHEST)
-						|| !BlockUtils.isDoubleChest(block)) {
+						&& !BlockUtils.isDoubleChest(block)) {
 					Chest chest = (Chest) block.getState();
 					TempsSource source = temporaryValue.getSource();
 					if (source.equals(ASCommand.ASHOP))
@@ -100,6 +102,7 @@ public class ASPlayerListener extends ASListener {
 				}
 				event.setUseInteractedBlock(Result.DENY);
 				event.setCancelled(true);
+				event.getPlayer().updateInventory();
 			}
 		} else {
 			if (block.getType().equals(Material.CHEST)) {
@@ -135,7 +138,7 @@ public class ASPlayerListener extends ASListener {
 			TemporaryValue temporaryValue) {
 		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (!ShopUtils.hasShopSign(signs)) {
-			if (!ShopUtils.hasShopNeighbours(chest.getBlock())) {
+			if (!ShopUtils.hasChestNeighbours(chest.getBlock())) {
 				if (ShopUtils.hasTagSign(signs)) {
 					if (getPermissions().has(player, ASPermission.ANY_REGION)
 							|| getShopsManager().isShopRegion(
@@ -165,7 +168,7 @@ public class ASPlayerListener extends ASListener {
 					tell(player, ASMessage.NO_SIGN);
 				}
 			} else {
-				tell(player, ASMessage.SHOP_NEIGHBOUR);
+				tell(player, ASMessage.CHEST_NEIGHBOUR);
 			}
 		} else {
 			tell(player, ASMessage.ALREADY_SHOP);
@@ -257,11 +260,15 @@ public class ASPlayerListener extends ASListener {
 			TemporaryValue temporaryValue) {
 		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
 		if (!ShopUtils.hasShopSign(signs)) {
-			if (ShopUtils.hasTagSign(signs)) {
-				getShopsManager().createServerShop(chest);
-				tell(player, ASMessage.CREATED);
+			if (!ShopUtils.hasChestNeighbours(chest.getBlock())) {
+				if (ShopUtils.hasTagSign(signs)) {
+					getShopsManager().createServerShop(chest);
+					tell(player, ASMessage.CREATED);
+				} else {
+					tell(player, ASMessage.NO_SIGN);
+				}
 			} else {
-				tell(player, ASMessage.NO_SIGN);
+				tell(player, ASMessage.CHEST_NEIGHBOUR);
 			}
 		} else {
 			tell(player, ASMessage.ALREADY_SHOP);
@@ -411,7 +418,12 @@ public class ASPlayerListener extends ASListener {
 
 	private void tryRecreateShop(Player player, Chest chest) {
 		Set<Sign> signs = ShopUtils.getAttachedSigns(chest.getLocation());
+		Set<Offer> foundOffers = new HashSet<Offer>();
 		if (ShopUtils.hasShopSign(signs) || ShopUtils.hasTagSign(signs)) {
+			if (ShopUtils.hasChestNeighbours(chest.getBlock())) {
+				tell(player, ASMessage.CHEST_NEIGHBOUR);
+				return;
+			}
 			Inventory inventory = chest.getInventory();
 			String ownerName = null;
 			boolean isServerShop = false;
@@ -428,27 +440,33 @@ public class ASPlayerListener extends ASListener {
 					if (item != null && item.getTypeId() > 0) {
 						firstItemFound = true;
 						Offer offer = Offer.getOffer(item, i);
-						if (offer instanceof PlayerShopOffer) {
-							String itemOwner = ((PlayerShopOffer) offer)
-									.getOwnerName();
-							if (isServerShop) {
-								tell(player, ASMessage.REPAIR_FAILURE);
-								return;
-							}
-							if (ownerName != null) {
-								if (!itemOwner.equalsIgnoreCase(ownerName)) {
+						if (offer != null) {
+							if (offer instanceof PlayerShopOffer) {
+								String itemOwner = ((PlayerShopOffer) offer)
+										.getOwnerName();
+								if (isServerShop) {
 									tell(player, ASMessage.REPAIR_FAILURE);
 									return;
 								}
+								if (ownerName != null) {
+									if (!itemOwner.equalsIgnoreCase(ownerName)) {
+										tell(player, ASMessage.REPAIR_FAILURE);
+										return;
+									}
+								} else {
+									ownerName = itemOwner;
+								}
 							} else {
-								ownerName = itemOwner;
+								if (firstItemFound && !isServerShop) {
+									tell(player, ASMessage.REPAIR_FAILURE);
+									return;
+								}
+								isServerShop = true;
 							}
+							foundOffers.add(offer);
 						} else {
-							if (firstItemFound && !isServerShop) {
-								tell(player, ASMessage.REPAIR_FAILURE);
-								return;
-							}
-							isServerShop = true;
+							tell(player, ASMessage.REPAIR_FAILURE);
+							return;
 						}
 					}
 				}
@@ -461,7 +479,8 @@ public class ASPlayerListener extends ASListener {
 					if (getPermissions().hasOneOf(player,
 							ASPermission.SERVER_BUY_SHOP,
 							ASPermission.SERVER_SELL_SHOP)) {
-						getShopsManager().recreateServerShop(chest);
+						getShopsManager()
+								.recreateServerShop(chest, foundOffers);
 						tell(player, ASMessage.SHOP_RECREATED);
 					} else {
 						tell(player, ASMessage.NO_PERMISSION);
@@ -470,7 +489,8 @@ public class ASPlayerListener extends ASListener {
 					if (getPermissions().hasOneOf(player,
 							ASPermission.OTHERS_BUY_SHOP,
 							ASPermission.OTHERS_SELL_SHOP)) {
-						getShopsManager().recreatePlayerShop(chest, ownerName);
+						getShopsManager().recreatePlayerShop(chest,
+								foundOffers, ownerName);
 						tell(player, ASMessage.SHOP_RECREATED);
 					} else {
 						tell(player, ASMessage.NO_PERMISSION);

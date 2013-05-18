@@ -48,12 +48,16 @@ public abstract class Offer implements Serializable {
 	}
 
 	public static Offer getOffer(ItemStack offerTag, int slot) {
-		List<String> lore = offerTag.getItemMeta().getLore();
-		if (PlayerUtil
-				.isValidPlayerName(lore.get(lore.size() - 1).substring(2))) {
-			return PlayerShopOffer.getOffer(offerTag, slot);
+		if (offerTag.hasItemMeta()) {
+			List<String> lore = offerTag.getItemMeta().getLore();
+			if (PlayerUtil.isValidPlayerName(lore.get(lore.size() - 1)
+					.substring(2))) {
+				return PlayerShopOffer.getOffer(offerTag, slot);
+			} else {
+				return ServerShopOffer.getOffer(offerTag, slot);
+			}
 		} else {
-			return ServerShopOffer.getOffer(offerTag, slot);
+			return null;
 		}
 	}
 

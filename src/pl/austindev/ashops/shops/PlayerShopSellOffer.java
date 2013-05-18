@@ -19,7 +19,6 @@ package pl.austindev.ashops.shops;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -49,8 +48,7 @@ public class PlayerShopSellOffer extends PlayerShopOffer {
 		List<String> lore = meta.getLore();
 		if (lore == null)
 			lore = new LinkedList<String>();
-		lore.add(ChatColor.RED + "-"
-				+ String.format(Locale.ENGLISH, "%.2f", getPrice()));
+		lore.add(ShopUtils.getBuyLine(getPrice()));
 		lore.add("" + ChatColor.GRAY + getAmount() + "/" + getMaxAmount());
 		lore.add(ChatColor.GRAY + getOwnerName());
 		meta.setLore(lore);
@@ -85,32 +83,36 @@ public class PlayerShopSellOffer extends PlayerShopOffer {
 	@Override
 	public synchronized ASMessage trade(AShops plugin, Player player,
 			Inventory shopInventory, int amount) {
-		Inventory playerInventory = player.getInventory();
-		int playerSlot = ItemUtil.firstSimilar(playerInventory, getItem());
-		if (playerSlot < 0)
-			playerSlot = playerInventory.firstEmpty();
-		if (playerSlot >= 0) {
-			amount = Math.min(amount, getItem().getMaxStackSize());
-			amount = Math.min(amount, getAmount());
-			if (amount > 0) {
-				amount = ItemUtil.add(playerInventory, getItem(), amount);
-				double value = getPrice() * amount;
-				if (plugin.getEconomy().transfer(player,
-						getOwnerName(), value)) {
-					setAmount(getAmount() - amount);
-					updateOfferTag(shopInventory);
-					ShopUtils.applyTaxes(plugin, player.getWorld(), getOwnerName(),
-							value);
-					return null;
+		if (plugin.getShopsManager().canTrade(player, getItem())) {
+			Inventory playerInventory = player.getInventory();
+			int playerSlot = ItemUtil.firstSimilar(playerInventory, getItem());
+			if (playerSlot < 0)
+				playerSlot = playerInventory.firstEmpty();
+			if (playerSlot >= 0) {
+				amount = Math.min(amount, getItem().getMaxStackSize());
+				amount = Math.min(amount, getAmount());
+				if (amount > 0) {
+					amount = ItemUtil.add(playerInventory, getItem(), amount);
+					double value = getPrice() * amount;
+					if (plugin.getEconomy().transfer(player,
+							getOwnerName(), value)) {
+						setAmount(getAmount() - amount);
+						updateOfferTag(shopInventory);
+						ShopUtils.applyTaxes(plugin, player.getWorld(),
+								getOwnerName(), value);
+						return null;
+					} else {
+						ItemUtil.remove(playerInventory, getItem(), amount);
+						return ASMessage.CLIENT_NO_MONEY;
+					}
 				} else {
-					ItemUtil.remove(playerInventory, getItem(), amount);
-					return ASMessage.CLIENT_NO_MONEY;
+					return ASMessage.OWNER_NO_ITEMS;
 				}
 			} else {
-				return ASMessage.OWNER_NO_ITEMS;
+				return ASMessage.CLIENT_NO_SPACE;
 			}
 		} else {
-			return ASMessage.CLIENT_NO_SPACE;
+			return ASMessage.ITEM_EXCLUDED;
 		}
 	}
 

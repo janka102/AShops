@@ -19,9 +19,7 @@ package pl.austindev.ashops.shops;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -49,8 +47,7 @@ public class ServerShopSellOffer extends ServerShopOffer {
 		List<String> lore = meta.getLore();
 		if (lore == null)
 			lore = new LinkedList<String>();
-		lore.add(ChatColor.RED + "-"
-				+ String.format(Locale.ENGLISH, "%.2f", getPrice()));
+		lore.add(ShopUtils.getBuyLine(getPrice()));
 		meta.setLore(lore);
 		offerTag.setItemMeta(meta);
 		inventory.setItem(getSlot(), offerTag);
