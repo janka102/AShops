@@ -24,7 +24,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
-import pl.austindev.ashops.ShopUtils;
 import pl.austindev.ashops.keys.ASConfigurationPath;
 
 public class VaultEconomyProvider implements EconomyProvider {

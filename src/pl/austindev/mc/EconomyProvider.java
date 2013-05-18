@@ -19,9 +19,6 @@ package pl.austindev.mc;
 
 import org.bukkit.entity.Player;
 
-import pl.austindev.ashops.ShopUtils;
-import pl.austindev.ashops.keys.ASConfigurationPath;
-
 public interface EconomyProvider {
 	public boolean has(Player player, double amount);
 
