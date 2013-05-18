@@ -1,43 +1,103 @@
-# Plugin language. Available values: en | pl
+# AShops' wiki: https://sites.google.com/site/ashopswiki/
+
+# language: <value>
+# Specifies messages language. Currently supported languages:
+# - en for english.
+# - pl for polish.
 language: en
 
-# If you want to use an item ID for the currency to be used
-use_id_for_currency: false
-# The ID of the item to be used for the currency, if the above is true. Default is emerald
+# If it's set to true, the way players buy/sell things is by exchanging items, otherwise it will use the default economy money
+# use_item_for_currency: (true|false)
+use_item_for_currency: false
+
+# currency_id: <value>
+# If use_item_for_currency is set to true, this is the ID of the item to be used. Default is emerald.
 currency_id: 388
 
-# Container for data. Available values: file | mysql
+# data_container: <value>
+# Specifies where shops data should be stored. Currently supported containers:
+# - file
+# - mysql - requires to specify also:
+#   host: <value>
+#   name: <value>
+#   user: <value>
+#   password: <value>
 data_container: file
-# Database Connection Settings. If you use file as a container, you don't have to set it.
-host: localhost
-name: databasebName
-user: databaseUser
-password: databasePassword
+host:
+name:
+user:
+password:
 
-# Uncomment and set if you want server shops to use an account to withdraw and deposit money.
-# server_account_name: name
+# If it's set to false, players will be able to destroy other players' shops and get their contents. It can be useful on survival servers.
+# protection: (true|false)
+protection: true
 
-# Shops number limits for groups.
+# This text will appear before price in item descriptions. If no value specified the default text will be used.
+# buy_description: <value>
+# sell_description: <value>
+buy_description:
+sell_description:
+
+# This account will be used for server shop transactions. Note that when it doesn't contain any money, players won't be able to sell items in server shops. If no value specified server shops will have infinite amount of money.
+# server_account_name: <value>
+server_account_name:
+
+# Specifies a limit of shops that a member of a listed group can have. If player belongs to more than one group, it will use a maximum value.
+# limit:
+#   <groupName1>: <value>
+#   ...
+#   <groupNameN>: <value>
 limit:
   default: 2
-# Prices for a new shop for groups. (positive integer)
+
+# Specifies a price, that a member of a listed group will pay, when creates a shop. If player belongs to more than one group, it will use a maximum value. It must be integer!
+# price:
+#   <groupName1>: <value>
+#   ...
+#   <groupNameN>: <value>
 price:
   default: 0
-# Minimal prices for items. (positive double)
+
+
+# Specifies a minimal prices for listed items.
+# minimal:
+#   <itemId1>: <value>
+#   ...
+#   <itemIdN>: <value>
 minimal:
   0: 1.5
-# List of excluded from shops items.
+
+# Listed items will be excluded from using in shops.
+# exclude:
+#   - <itemId1>
+#   ...
+#   - <itemIdN>
 exclude:
   - 0
-# Discounts for groups. (percent of a price, that should be reduced)
+
+# Listed groups will pay less money for items in server shops. (newPrice = price - (price * (<value> / 100))
+# discount:
+#  <groupName1>: <value>
+#  ...
+#  <groupNameN>: <value>
 discount:
   default: 0
-# Uncomment if you want to send collected taxes to specified account. You can set the same account in this property and in server_account_name.
-# taxes_account_name: name
+
+# Specifies an account, where money from an income tax will be cummulated. You can use an account from server_account_name option. If no value specified money won't be cummulated.
+# taxes_account_name: <value>
+taxes_account_name:
+
 # Perecent of income that will be sent to the taxes account.
+# taxes:
+#   <groupName1>: <value>
+#   ...
+#   <groupNameN>: <value>
 taxes:
   default: 0
 
-# List of regions, where player can create a shop.
+# If this list isn't empty players will be able to create a new shop only in regions it contains. If empty, there won't be any regions restrictions.
 # regions:
-#  - regionName
+#  - <regionName1>
+#  ...
+#  - <regionNameN>
+regions:
